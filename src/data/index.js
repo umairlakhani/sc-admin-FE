@@ -190,6 +190,56 @@ export const propertiesData = [
   },
 ]
 
+export const supportTickets = [
+  {
+    id: 't-2001',
+    userId: 'u-1001',
+    subject: 'Unable to update profile picture',
+    status: 'Open',
+    createdAt: '2025-01-05 09:40',
+    updatedAt: '2025-01-05 09:40',
+    messages: [
+      { by: 'user', at: '2025-01-05 09:40', text: 'I am getting an error when uploading a picture.' },
+    ],
+  },
+  {
+    id: 't-2002',
+    userId: 'u-1002',
+    subject: 'Billing: charged twice',
+    status: 'In Progress',
+    createdAt: '2025-01-04 11:05',
+    updatedAt: '2025-01-04 13:10',
+    messages: [
+      { by: 'user', at: '2025-01-04 11:05', text: 'I see two charges for this month.' },
+      { by: 'admin', at: '2025-01-04 13:10', text: 'We are looking into this, sorry for the trouble.' },
+    ],
+  },
+  {
+    id: 't-2003',
+    userId: 'u-1004',
+    subject: 'Property listing not visible',
+    status: 'Resolved',
+    createdAt: '2025-01-02 15:22',
+    updatedAt: '2025-01-03 10:02',
+    messages: [
+      { by: 'user', at: '2025-01-02 15:22', text: 'My listing does not show up in search.' },
+      { by: 'admin', at: '2025-01-03 10:02', text: 'We reindexed search; please confirm it is visible now.' },
+    ],
+  },
+]
+
+// Property matching configuration (dummy, used by admin UI)
+export const matchingSettings = {
+  overallThresholdPct: 70,
+}
+
+export const matchingRules = [
+  { id: 'r-1', attribute: 'bedrooms', operator: '>=', value: 2, weightPct: 25, enabled: true },
+  { id: 'r-2', attribute: 'location_radius_km', operator: '<=', value: 5, weightPct: 30, enabled: true },
+  { id: 'r-3', attribute: 'price', operator: '<=', value: 750000, weightPct: 20, enabled: true },
+  { id: 'r-4', attribute: 'type', operator: '==', value: 'Apartment', weightPct: 25, enabled: false },
+]
+
 // Properties dummy data used across the app
 
 

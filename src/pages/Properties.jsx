@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { propertiesData, usersData } from '../data'
-import { Plus, MoreVertical, Eye, Pencil, Trash2, Upload } from 'lucide-react'
+import { propertiesData, usersData, matchingRules, matchingSettings } from '../data'
+import { Plus, MoreVertical, Eye, Pencil, Trash2, Upload, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 function Modal({ open, onClose, title, children }) {
@@ -27,6 +27,11 @@ function Properties() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [current, setCurrent] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const [rules, setRules] = useState(matchingRules)
+  const [settings, setSettings] = useState(matchingSettings)
+  const [availableAttributes, setAvailableAttributes] = useState(['bedrooms','location_radius_km','price','type','areaSqft'])
+  const [newAttribute, setNewAttribute] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 10
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
@@ -77,9 +82,14 @@ function Properties() {
     <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">Manage Properties</h2>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
-          <Plus size={16} /> New property
-        </button>
+        <div className="inline-flex items-center gap-2">
+          <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
+            <Settings size={16} /> Matching rules
+          </button>
+          <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
+            <Plus size={16} /> New property
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
@@ -261,6 +271,72 @@ function Properties() {
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
             <button onClick={doDelete} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Matching rules */}
+      <Modal open={rulesOpen} onClose={() => setRulesOpen(false)} title="Property matching rules">
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm text-gray-700">Overall threshold (%)</label>
+            <input type="number" value={settings.overallThresholdPct} onChange={(e) => setSettings((s) => ({ ...s, overallThresholdPct: parseInt(e.target.value) || 0 }))} className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="px-3 py-2">Enabled</th>
+                  <th className="px-3 py-2">Attribute</th>
+                  <th className="px-3 py-2">Operator</th>
+                  <th className="px-3 py-2">Value</th>
+                  <th className="px-3 py-2">Weight (%)</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((r, idx) => (
+                  <tr key={r.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2"><input type="checkbox" checked={r.enabled} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, enabled: e.target.checked } : x))} /></td>
+                    <td className="px-3 py-2">
+                      <select value={r.attribute} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, attribute: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
+                        {availableAttributes.map((attr) => (
+                          <option key={attr} value={attr}>{attr}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <select value={r.operator} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, operator: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
+                        <option>{'=='}</option>
+                        <option>{'>='}</option>
+                        <option>{'<='}</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2"><input value={r.value} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, value: isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value) } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
+                    <td className="px-3 py-2 w-32"><input type="number" value={r.weightPct} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, weightPct: parseInt(e.target.value) || 0 } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
+                    <td className="px-3 py-2 text-right">
+                      <button onClick={() => setRules((arr) => arr.filter((_, i) => i !== idx))} className="text-sm text-red-600 hover:underline">Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="mb-1 block text-sm text-gray-700">Add new attribute</label>
+              <input value={newAttribute} onChange={(e) => setNewAttribute(e.target.value)} placeholder="e.g. furnishing, pets_allowed" className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
+            <button
+              onClick={() => { if (newAttribute && !availableAttributes.includes(newAttribute)) { setAvailableAttributes((a) => [...a, newAttribute]); setNewAttribute('') } }}
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              Add attribute
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <button onClick={() => setRules((arr) => [...arr, { id: `r-${Math.floor(Math.random()*9000)+1000}`, attribute: 'bedrooms', operator: '>=', value: 1, weightPct: 10, enabled: true }])} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Add rule</button>
+            <button onClick={() => setRulesOpen(false)} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Done</button>
           </div>
         </div>
       </Modal>

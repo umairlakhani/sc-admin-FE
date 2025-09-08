@@ -10,6 +10,7 @@ import PropertyView from './pages/PropertyView'
 import Notifications from './pages/Notifications'
 import Support from './pages/Support'
 import SignIn from './pages/SignIn'
+import Billing from './pages/Billing'
 
 function PrivateRoute({ children }) {
   const isAuthed = typeof window !== 'undefined' && localStorage.getItem('auth') === 'true'
@@ -39,6 +40,7 @@ function App() {
           <Route path="properties/:id" element={<PropertyView />} />
           <Route path="support" element={<Support />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="billing" element={<Billing />} />
         </Route>
       </Routes>
     </BrowserRouter>

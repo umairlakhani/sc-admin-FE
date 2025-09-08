@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent } from 'lucide-react'
+import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent, CreditCard } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const items = [
@@ -6,6 +6,7 @@ const items = [
   { to: '/plans', label: 'Plans', icon: BadgePercent },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/properties', label: 'Manage Properties', icon: Building2 },
+  { to: '/billing', label: 'Subscriptions & Payments', icon: CreditCard },
   { to: '/support', label: 'Support Requests', icon: LifeBuoy },
   { to: '/notifications', label: 'Manage Notifications', icon: Bell },
 ]

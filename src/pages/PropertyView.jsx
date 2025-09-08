@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { propertiesData, usersData } from '../data'
 
@@ -24,6 +24,36 @@ function PropertyView() {
     () => new Intl.NumberFormat('en-IN', { style: 'currency', currency: property?.currency || 'INR' }),
     [property?.currency]
   )
+  const [propRules, setPropRules] = useState({})
+  const [customRules, setCustomRules] = useState([])
+  const [attributes, setAttributes] = useState(['bedrooms','bathrooms','price','type','location_radius_km','areaSqft'])
+  const [newAttr, setNewAttr] = useState('')
+
+  useEffect(() => {
+    if (!property) return
+    const key = `prop_rules_${property.id}`
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      setPropRules(JSON.parse(saved))
+    } else {
+      setPropRules({ bedrooms: true, bathrooms: true, price: true, type: true, location_radius_km: true, areaSqft: false })
+    }
+    const key2 = `prop_custom_rules_${property.id}`
+    const saved2 = localStorage.getItem(key2)
+    if (saved2) setCustomRules(JSON.parse(saved2))
+  }, [property?.id])
+
+  function savePropRules() {
+    if (!property) return
+    const key = `prop_rules_${property.id}`
+    localStorage.setItem(key, JSON.stringify(propRules))
+  }
+
+  function saveCustomRules() {
+    if (!property) return
+    const key = `prop_custom_rules_${property.id}`
+    localStorage.setItem(key, JSON.stringify(customRules))
+  }
 
   if (!property) {
     return (
@@ -126,6 +156,87 @@ function PropertyView() {
               </a>
             </div>
           </Section>
+
+          <Section title="Matching options (per property)">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {attributes.map((attr) => (
+                <label key={attr} className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={propRules[attr] ?? true} onChange={(e) => setPropRules((r) => ({ ...r, [attr]: e.target.checked }))} />
+                  <span className="text-gray-800">{attr === 'areaSqft' ? 'Area (sqft)' : attr.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 flex items-end gap-2">
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">Add option</label>
+                <input value={newAttr} onChange={(e) => setNewAttr(e.target.value)} placeholder="e.g. furnishing"
+                  className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <button onClick={() => { if (newAttr && !attributes.includes(newAttr)) { setAttributes((a) => [...a, newAttr]); setPropRules((r) => ({ ...r, [newAttr]: true })); setNewAttr('') } }}
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Add</button>
+            </div>
+            <div className="mt-3">
+              <button onClick={savePropRules} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save rules</button>
+              <span className="ml-2 text-xs text-gray-500">Saved locally per property</span>
+            </div>
+          </Section>
+
+          {/* <Section title="Custom matching rules (per property)">
+            <div className="space-y-3">
+              <div className="flex items-end gap-2">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Add attribute</label>
+                  <input value={newAttr} onChange={(e) => setNewAttr(e.target.value)} placeholder="e.g. furnishing"
+                    className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+                <button onClick={() => { if (newAttr && !attributes.includes(newAttr)) { setAttributes((a) => [...a, newAttr]); setNewAttr('') } }}
+                  className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Add attribute</button>
+                <button onClick={() => setCustomRules((arr) => [...arr, { id: `cr-${Math.floor(Math.random()*9000)+1000}`, attribute: attributes[0], operator: '>=', value: 1, weightPct: 10, enabled: true }])}
+                  className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Add rule</button>
+              </div>
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500">
+                      <th className="px-3 py-2">Enabled</th>
+                      <th className="px-3 py-2">Attribute</th>
+                      <th className="px-3 py-2">Operator</th>
+                      <th className="px-3 py-2">Value</th>
+                      <th className="px-3 py-2">Weight (%)</th>
+                      <th className="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customRules.map((r, idx) => (
+                      <tr key={r.id} className="border-t border-gray-100">
+                        <td className="px-3 py-2"><input type="checkbox" checked={r.enabled} onChange={(e) => setCustomRules((arr) => arr.map((x, i) => i === idx ? { ...x, enabled: e.target.checked } : x))} /></td>
+                        <td className="px-3 py-2">
+                          <select value={r.attribute} onChange={(e) => setCustomRules((arr) => arr.map((x, i) => i === idx ? { ...x, attribute: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
+                            {attributes.map((attr) => (
+                              <option key={attr} value={attr}>{attr}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select value={r.operator} onChange={(e) => setCustomRules((arr) => arr.map((x, i) => i === idx ? { ...x, operator: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
+                            <option>{'=='}</option>
+                            <option>{'>='}</option>
+                            <option>{'<='}</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2"><input value={r.value} onChange={(e) => setCustomRules((arr) => arr.map((x, i) => i === idx ? { ...x, value: isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value) } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2 w-32"><input type="number" value={r.weightPct} onChange={(e) => setCustomRules((arr) => arr.map((x, i) => i === idx ? { ...x, weightPct: parseInt(e.target.value) || 0 } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
+                        <td className="px-3 py-2 text-right"><button onClick={() => setCustomRules((arr) => arr.filter((_, i) => i !== idx))} className="text-sm text-red-600 hover:underline">Remove</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-end">
+                <button onClick={saveCustomRules} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save custom rules</button>
+              </div>
+            </div>
+          </Section> */}
 
           <Section title="Media">
             {property.images?.length ? (
