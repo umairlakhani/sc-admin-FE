@@ -49,6 +49,63 @@ function Dashboard() {
         <Stat label="Active users" value={dashboardStats.activeUsers} />
         <Stat label="Gender Mix" value={dashboardStats.genderMix} />
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+          <div className="text-base font-semibold text-gray-900">Users overview</div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Total users</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.totalUsers}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Subscribed users</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.subscribedUsers}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Offer users</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.offerUsers}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Demand users</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.demandUsers}</div>
+            </div>
+          </div>
+          <div className="pt-2">
+            <div className="text-sm font-medium text-gray-900 mb-2">Subscriptions by plan</div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              {Object.entries(dashboardStats.subscriptionsByPlan).map(([plan, count]) => (
+                <div key={plan} className="rounded-xl border border-gray-100 p-3">
+                  <div className="text-gray-500">{plan}</div>
+                  <div className="mt-1 text-xl font-semibold text-gray-900">{count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+          <div className="text-base font-semibold text-gray-900">Properties analytics</div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Matches (total)</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.propertiesMatchedTotal}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Confirmations</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.propertiesConfirmations}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Listed (offer users)</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.listedPropertiesOfferUsers}</div>
+            </div>
+            <div className="rounded-xl border border-gray-100 p-3">
+              <div className="text-gray-500">Searched (demand users)</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{dashboardStats.searchedPropertiesDemandUsers}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

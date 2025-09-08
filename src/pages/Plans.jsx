@@ -28,6 +28,11 @@ function Plans() {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(plans.length / pageSize))
+  const start = (page - 1) * pageSize
+  const pageRows = plans.slice(start, start + pageSize)
 
   const currency = useMemo(() => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }), [])
 
@@ -65,7 +70,7 @@ function Plans() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">Plans</h2>
         <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
@@ -73,8 +78,8 @@ function Plans() {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <div className="overflow-x-auto">
+      <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
+        <div className="overflow-x-auto overflow-y-visible flex-1 min-h-[360px]">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500">
@@ -87,7 +92,7 @@ function Plans() {
               </tr>
             </thead>
             <tbody>
-              {plans.map((plan) => (
+              {pageRows.map((plan) => (
                 <tr key={plan.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{plan.name}</td>
                   <td className="px-4 py-3 text-gray-800">{currency.format(plan.price)} {plan.currency}</td>
@@ -111,7 +116,7 @@ function Plans() {
                         <MoreVertical size={16} />
                       </button>
                       {menuOpenId === plan.id && (
-                        <div className="absolute right-0 z-10 mt-2 w-36 overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
+                        <div className="absolute right-0 z-50 mt-2 w-36 rounded-md border border-gray-200 bg-white shadow-md">
                           <button onClick={() => { setMenuOpenId(''); navigate(`/plans/${plan.id}`) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
                             <Eye size={14} /> View
                           </button>
@@ -129,6 +134,39 @@ function Plans() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="mt-auto border-t border-gray-100 px-4 py-3 flex items-center justify-between">
+          <div className="text-xs text-gray-500">Page {page} of {totalPages}</div>
+          <div className="inline-flex items-center gap-1">
+            <button
+              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }).slice(0, 5).map((_, i) => {
+              const n = i + 1
+              return (
+                <button
+                  key={n}
+                  onClick={() => setPage(n)}
+                  className={`rounded-md px-2 py-1 text-sm border ${n === page ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white border-gray-200'}`}
+                >
+                  {n}
+                </button>
+              )
+            })}
+            <button
+              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

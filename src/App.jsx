@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Plans from './pages/Plans'
 import PlanView from './pages/PlanView'
 import Users from './pages/Users'
+import UserView from './pages/UserView'
 import Properties from './pages/Properties'
 import Notifications from './pages/Notifications'
 import Support from './pages/Support'
@@ -32,6 +33,7 @@ function App() {
           <Route path="plans" element={<Plans />} />
           <Route path="plans/:id" element={<PlanView />} />
           <Route path="users" element={<Users />} />
+          <Route path="users/:id" element={<UserView />} />
           <Route path="properties" element={<Properties />} />
           <Route path="support" element={<Support />} />
           <Route path="notifications" element={<Notifications />} />

@@ -12,7 +12,7 @@ const items = [
 
 function Sidebar() {
   return (
-    <aside className="w-64 h-[calc(100vh-2rem)] sticky top-4 self-start">
+    <aside className="w-64 h-[calc(100vh-100px)] sticky top-4 self-start">
       <div className="h-full rounded-2xl bg-white shadow-sm border border-gray-200 flex flex-col">
         <div className="h-16 flex items-center px-5 text-xl font-extrabold text-gray-900 tracking-tight">
           <span className="text-green-600">Search</span>&nbsp;casa

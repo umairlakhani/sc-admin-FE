@@ -5,15 +5,15 @@ import { Outlet } from 'react-router-dom'
 
 function AdminLayout() {
   return (
-    <div className="h-screen grid grid-rows-[auto_1fr_auto] bg-muted">
+    <div className="min-h-screen grid grid-rows-[auto_1fr_auto] bg-muted">
       <TopNav />
-      <div className="grid grid-cols-[16rem_1fr] gap-0 h-full overflow-hidden">
+      <div className="grid grid-cols-[16rem_1fr] gap-0 min-h-0">
         <Sidebar />
-        <main className="p-4 overflow-auto">
+        <main className="p-4">
           <Outlet />
         </main>
       </div>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   )
 }
