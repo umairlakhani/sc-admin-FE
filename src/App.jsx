@@ -6,6 +6,7 @@ import PlanView from './pages/PlanView'
 import Users from './pages/Users'
 import UserView from './pages/UserView'
 import Properties from './pages/Properties'
+import PropertyView from './pages/PropertyView'
 import Notifications from './pages/Notifications'
 import Support from './pages/Support'
 import SignIn from './pages/SignIn'
@@ -35,6 +36,7 @@ function App() {
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserView />} />
           <Route path="properties" element={<Properties />} />
+          <Route path="properties/:id" element={<PropertyView />} />
           <Route path="support" element={<Support />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>

@@ -26,17 +26,17 @@ function SignIn() {
               <div className="h-2 w-2 rounded-full bg-white" />
               <span className="opacity-90">Admin</span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold">Welcome to Gini Admin</h2>
+            <h2 className="mt-4 text-2xl font-semibold">Welcome to Search-casa Admin</h2>
             <p className="mt-2 text-white/90 text-sm">Manage dashboards, users, properties, plans and notifications.</p>
           </div>
-          <div className="text-xs text-white/80">© {new Date().getFullYear()} Gini Admin</div>
+          <div className="text-xs text-white/80">© {new Date().getFullYear()} Search Casa</div>
         </div>
 
         <div className="p-8">
           <div className="mb-8">
             <div className="inline-flex items-center gap-2">
               <div className="h-7 w-7 rounded-md bg-green-500" />
-              <div className="font-semibold text-gray-800">Gini Admin</div>
+              <div className="font-semibold text-gray-800">Search casa</div>
             </div>
             <h1 className="mt-4 text-xl font-semibold text-gray-900">Sign in</h1>
             <p className="text-sm text-gray-500">Use your email and password.</p>
