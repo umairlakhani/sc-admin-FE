@@ -13,8 +13,8 @@ import SignIn from './pages/SignIn'
 import Billing from './pages/Billing'
 
 function PrivateRoute({ children }) {
-  const isAuthed = typeof window !== 'undefined' && localStorage.getItem('auth') === 'true'
-  return isAuthed ? children : <Navigate to="/signin" replace />
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('auth_token')
+  return hasToken ? children : <Navigate to="/signin" replace />
 }
 
 function App() {

@@ -1,5 +1,8 @@
-import { useState } from 'react'
-import { usersData } from '../data'
+import { useEffect, useState } from 'react'
+import { adminService } from '../lib/api'
+import { showToast } from '../lib/toast'
+import { Trash2 } from 'lucide-react'
+import Pagination from '../components/Pagination'
 import { MoreVertical, Eye, Pencil, Mail, ShieldBan, KeyRound, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -21,35 +24,84 @@ function Modal({ open, onClose, title, children }) {
 
 function Users() {
   const navigate = useNavigate()
-  const [rows, setRows] = useState(usersData)
+  const [rows, setRows] = useState([])
   const [menuOpen, setMenuOpen] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
   const [suspendOpen, setSuspendOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [current, setCurrent] = useState(null)
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Customer' })
   const [page, setPage] = useState(1)
-  const pageSize = 10
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
-  const start = (page - 1) * pageSize
-  const pageRows = rows.slice(start, start + pageSize)
+  const pageSize = 6
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [role, setRole] = useState('')
+  const [userType, setUserType] = useState('')
+  const [isActive, setIsActive] = useState('')
+  const [isVerified, setIsVerified] = useState('')
+  const [isSubscribed, setIsSubscribed] = useState('')
+  const pageRows = rows
 
-  function addUser() {
+  async function loadUsers() {
+    setLoading(true)
+    try {
+      // Clear current rows to avoid showing stale data while loading next page
+      setRows([])
+      const params = { page, limit: pageSize }
+      if (search) params.search = search
+      if (role) params.role = role
+      if (userType) params.userType = userType
+      if (isActive !== '') params.isActive = isActive === 'true'
+      if (isVerified !== '') params.isVerified = isVerified === 'true'
+      if (isSubscribed !== '') params.isSubscribed = isSubscribed === 'true'
+      const res = await adminService.listUsers(params)
+      setRows(res?.users || [])
+      setTotalPages(res?.pagination?.totalPages || 1)
+    } catch (_) {
+      showToast('Failed to load users', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadUsers() }, [page, role, userType, isActive, isVerified, isSubscribed])
+
+  async function addUser() {
     if (!newUser.name || !newUser.email) return
-    const id = `u-${Math.floor(Math.random() * 9000) + 1000}`
-    setRows((prev) => [{ id, status: 'Active', joinedAt: new Date().toISOString().slice(0, 10), ...newUser }, ...prev])
-    setAddOpen(false)
+    try {
+      await adminService.createUser({
+        name: newUser.name,
+        surname: newUser.surname || '',
+        email: newUser.email,
+        companyName: newUser.companyName || '',
+        role: (newUser.role || 'admin').toLowerCase(),
+        userType: newUser.userType || 'offer',
+        isActive: true,
+        isVerified: true,
+        isSubscribed: false,
+      })
+      showToast('User created')
+      setAddOpen(false)
+      setNewUser({ name: '', email: '', role: 'Customer' })
+      loadUsers()
+    } catch (_) { showToast('Failed to create user', 'error') }
   }
 
-  function updateUser() {
-    setRows((prev) => prev.map((r) => (r.id === current.id ? { ...r, ...current } : r)))
-    setEditOpen(false)
+  async function updateUser() {
+    try {
+      await adminService.updateUser(current.id, current)
+      showToast('User updated')
+      setEditOpen(false)
+      loadUsers()
+    } catch (_) { showToast('Update failed', 'error') }
   }
 
-  function suspendUser() {
-    setRows((prev) => prev.map((r) => (r.id === current.id ? { ...r, status: r.status === 'Suspended' ? 'Active' : 'Suspended' } : r)))
+  async function suspendUser() {
+    try { await adminService.toggleUserStatus(current.id); showToast('Status updated'); loadUsers() } catch(_) { showToast('Failed to update status','error') }
     setSuspendOpen(false)
   }
 
@@ -63,38 +115,63 @@ function Users() {
       </div>
 
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
+        <div className="p-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
+          <input value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=> e.key==='Enter' && (setPage(1), loadUsers())} placeholder="Search name, email, company..." className="rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <select value={role} onChange={(e)=>{ setPage(1); setRole(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">All roles</option>
+            <option value="admin">admin</option>
+            <option value="user">user</option>
+          </select>
+          <select value={userType} onChange={(e)=>{ setPage(1); setUserType(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">All types</option>
+            <option value="offer">offer</option>
+            <option value="demand">demand</option>
+          </select>
+          <select value={isActive} onChange={(e)=>{ setPage(1); setIsActive(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Active: any</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <select value={isVerified} onChange={(e)=>{ setPage(1); setIsVerified(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Verified: any</option>
+            <option value="true">Verified</option>
+            <option value="false">Unverified</option>
+          </select>
+          <select value={isSubscribed} onChange={(e)=>{ setPage(1); setIsSubscribed(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Subscribed: any</option>
+            <option value="true">Subscribed</option>
+            <option value="false">Not subscribed</option>
+          </select>
+          <button onClick={()=>{ setPage(1); loadUsers() }} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Apply</button>
+        </div>
         <div className="overflow-x-auto overflow-y-visible flex-1">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500">
-                <th className="px-4 py-3">First name</th>
-                <th className="px-4 py-3">Last name</th>
-                <th className="px-4 py-3">Age</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Surname</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Address</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Joined</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Active</th>
+                <th className="px-4 py-3">Created</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.map((u) => (
                 <tr key={u.id} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{u.firstName}</td>
-                  <td className="px-4 py-3 text-gray-800">{u.lastName}</td>
-                  <td className="px-4 py-3 text-gray-800">{u.age}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
+                  <td className="px-4 py-3 text-gray-800">{u.surname}</td>
                   <td className="px-4 py-3 text-gray-800">{u.email}</td>
                   <td className="px-4 py-3 text-gray-800">{u.role}</td>
-                  <td className="px-4 py-3 text-gray-800">{u.address}</td>
+                  <td className="px-4 py-3 text-gray-800">{u.userType}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      u.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {u.status}
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${u.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                      {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-800">{u.joinedAt}</td>
+                  <td className="px-4 py-3 text-gray-800">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''}</td>
                   <td className="px-4 py-3">
                     <div className="relative">
                       <button
@@ -105,7 +182,7 @@ function Users() {
                       </button>
                       {menuOpen === u.id && (
                         <div className="absolute right-0 z-50 mt-2 w-44 rounded-md border border-gray-200 bg-white shadow-md">
-                          <button onClick={() => { setMenuOpen(''); navigate(`/users/${u.id}`) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
+                          <button onClick={() => { setMenuOpen(''); navigate(`/users/${u.id}`, { state: { user: u } }) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
                             <Eye size={14} /> View
                           </button>
                           <button onClick={() => { setMenuOpen(''); setCurrent(u); setEditOpen(true) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
@@ -118,7 +195,10 @@ function Users() {
                             <KeyRound size={14} /> Reset password
                           </button>
                           <button onClick={() => { setMenuOpen(''); setCurrent(u); setSuspendOpen(true) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
-                            <ShieldBan size={14} /> {u.status === 'Suspended' ? 'Unsuspend' : 'Suspend'}
+                            <ShieldBan size={14} /> {u.isActive ? 'Suspend' : 'Unsuspend'}
+                          </button>
+                          <button onClick={() => { setMenuOpen(''); setCurrent(u); setDeleteOpen(true) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                            <Trash2 size={14} /> Delete
                           </button>
                         </div>
                       )}
@@ -131,37 +211,7 @@ function Users() {
         </div>
 
         {/* Pagination */}
-        <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
-          <div className="text-xs text-gray-500">Page {page} of {totalPages}</div>
-          <div className="inline-flex items-center gap-1">
-            <button
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </button>
-            {Array.from({ length: totalPages }).slice(0, 5).map((_, i) => {
-              const n = i + 1
-              return (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`rounded-md px-2 py-1 text-sm border ${n === page ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white border-gray-200'}`}
-                >
-                  {n}
-                </button>
-              )
-            })}
-            <button
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination page={page} totalPages={totalPages} onChange={(n) => setPage(n)} />
       </div>
 
       {/* Add user */}
@@ -172,15 +222,29 @@ function Users() {
             <input value={newUser.name} onChange={(e) => setNewUser((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
+            <label className="mb-1 block text-sm text-gray-700">Surname</label>
+            <input value={newUser.surname || ''} onChange={(e) => setNewUser((p) => ({ ...p, surname: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
             <label className="mb-1 block text-sm text-gray-700">Email</label>
             <input type="email" value={newUser.email} onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
           <div>
+            <label className="mb-1 block text-sm text-gray-700">Company</label>
+            <input value={newUser.companyName || ''} onChange={(e) => setNewUser((p) => ({ ...p, companyName: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div>
             <label className="mb-1 block text-sm text-gray-700">Role</label>
             <select value={newUser.role} onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option>Customer</option>
-              <option>Admin</option>
-              <option>Moderator</option>
+              <option value="admin">admin</option>
+              <option value="user">user</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-gray-700">User type</label>
+            <select value={newUser.userType || 'offer'} onChange={(e) => setNewUser((p) => ({ ...p, userType: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="offer">offer</option>
+              <option value="demand">demand</option>
             </select>
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -248,6 +312,17 @@ function Users() {
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setSuspendOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
             <button onClick={suspendUser} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Confirm</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete user */}
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete user">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">Are you sure you want to delete <span className="font-medium">{current?.name} {current?.surname}</span>?</p>
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
+            <button onClick={async () => { try { await adminService.deleteUser(current.id); showToast('User deleted'); loadUsers() } catch(_) { showToast('Failed to delete user','error') } finally { setDeleteOpen(false) } }} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
           </div>
         </div>
       </Modal>

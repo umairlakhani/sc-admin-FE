@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MoreVertical, Pencil, Eye, Trash2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { plansData } from '../data'
+import { adminService } from '../lib/api'
+import { showToast } from '../lib/toast'
+import Pagination from '../components/Pagination'
 
 function Modal({ open, onClose, children, title }) {
   if (!open) return null
@@ -19,7 +21,7 @@ function Modal({ open, onClose, children, title }) {
   )
 }
 
-const initialPlans = plansData
+const initialPlans = []
 
 function Plans() {
   const navigate = useNavigate()
@@ -29,15 +31,17 @@ function Plans() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [page, setPage] = useState(1)
-  const pageSize = 10
-  const totalPages = Math.max(1, Math.ceil(plans.length / pageSize))
-  const start = (page - 1) * pageSize
-  const pageRows = plans.slice(start, start + pageSize)
+  const pageSize = 6
+  const [totalPages, setTotalPages] = useState(1)
+  const [search, setSearch] = useState('')
+  const [activeFilter, setActiveFilter] = useState('')
+  const [loading, setLoading] = useState(false)
+  const pageRows = plans
 
   const currency = useMemo(() => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }), [])
 
   function openCreate() {
-    setEditing({ id: '', name: '', price: 0, currency: 'USD', billing: 'Monthly', features: [], status: 'Active' })
+    setEditing({ id: '', name: '', description: '', price: 0, interval: 'month', currency: 'USD', productType: 'service', recurring: true, matchingCount: 0, isActive: true })
     setEditOpen(true)
   }
 
@@ -46,17 +50,38 @@ function Plans() {
     setEditOpen(true)
   }
 
-  function savePlan() {
+  async function savePlan() {
     if (!editing.name) return
-    setPlans((prev) => {
-      const exists = prev.some((p) => p.id === editing.id && editing.id)
-      if (exists) {
-        return prev.map((p) => (p.id === editing.id ? { ...editing } : p))
+    try {
+      if (editing.id) {
+        await adminService.updatePlan(editing.id, {
+          name: editing.name,
+          description: editing.description,
+          price: Number(editing.price),
+          interval: editing.interval,
+          currency: editing.currency,
+          productType: editing.productType,
+          recurring: !!editing.recurring,
+          matchingCount: Number(editing.matchingCount),
+          isActive: !!editing.isActive,
+        })
+      } else {
+        await adminService.createPlan({
+          name: editing.name,
+          description: editing.description,
+          price: Number(editing.price),
+          interval: editing.interval,
+          currency: editing.currency,
+          productType: editing.productType,
+          recurring: !!editing.recurring,
+          matchingCount: Number(editing.matchingCount),
+          isActive: !!editing.isActive,
+        })
       }
-      const id = editing.name.toLowerCase().replace(/\s+/g, '-')
-      return [...prev, { ...editing, id }]
-    })
-    setEditOpen(false)
+      setEditOpen(false)
+      showToast(editing.id ? 'Plan updated' : 'Plan created')
+      loadPlans()
+    } catch (_) {}
   }
 
   function confirmDelete(plan) {
@@ -64,18 +89,45 @@ function Plans() {
     setDeleteOpen(true)
   }
 
-  function doDelete() {
-    setPlans((prev) => prev.filter((p) => p.id !== editing.id))
+  async function doDelete() {
+    try { await adminService.deletePlan(editing.id); showToast('Plan deleted') } catch (_) { showToast('Failed to delete plan', 'error') }
     setDeleteOpen(false)
+    loadPlans()
   }
+
+  async function loadPlans() {
+    setLoading(true)
+    try {
+      const params = { page, limit: pageSize }
+      if (search) params.search = search
+      if (activeFilter !== '') params.isActive = activeFilter === 'true'
+      const res = await adminService.listPlans(params)
+      setPlans(res?.plans || [])
+      setTotalPages(res?.pagination?.totalPages || 1)
+    } catch (_) {
+      showToast('Failed to load plans', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadPlans() }, [page, activeFilter])
 
   return (
     <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">Plans</h2>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
-          <Plus size={16} /> New plan
-        </button>
+        <div className="flex items-center gap-2">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key==='Enter' && (setPage(1), loadPlans())} placeholder="Search" className="rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          <select value={activeFilter} onChange={(e) => { setPage(1); setActiveFilter(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <option value="">All</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+          <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
+            <Plus size={16} /> New plan
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
@@ -85,9 +137,10 @@ function Plans() {
               <tr className="text-left text-gray-500">
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Billing</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Features</th>
+                <th className="px-4 py-3">Interval</th>
+                <th className="px-4 py-3">Currency</th>
+                <th className="px-4 py-3">Matchings</th>
+                <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -95,17 +148,12 @@ function Plans() {
               {pageRows.map((plan) => (
                 <tr key={plan.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{plan.name}</td>
-                  <td className="px-4 py-3 text-gray-800">{currency.format(plan.price)} {plan.currency}</td>
-                  <td className="px-4 py-3 text-gray-800">{plan.billing}</td>
+                  <td className="px-4 py-3 text-gray-800">{currency.format(Number(plan.price))}</td>
+                  <td className="px-4 py-3 text-gray-800">{plan.interval}</td>
+                  <td className="px-4 py-3 text-gray-800 uppercase">{plan.currency}</td>
+                  <td className="px-4 py-3 text-gray-800">{plan.matchingCount}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      plan.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {plan.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    <div className="line-clamp-1">{plan.features.join(', ') || '-'}</div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${plan.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{plan.isActive ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="relative">
@@ -136,38 +184,7 @@ function Plans() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="mt-auto border-t border-gray-100 px-4 py-3 flex items-center justify-between">
-          <div className="text-xs text-gray-500">Page {page} of {totalPages}</div>
-          <div className="inline-flex items-center gap-1">
-            <button
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </button>
-            {Array.from({ length: totalPages }).slice(0, 5).map((_, i) => {
-              const n = i + 1
-              return (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`rounded-md px-2 py-1 text-sm border ${n === page ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white border-gray-200'}`}
-                >
-                  {n}
-                </button>
-              )
-            })}
-            <button
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm disabled:opacity-50"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination page={page} totalPages={totalPages} onChange={(n) => setPage(n)} />
       </div>
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={editing?.id ? 'Edit plan' : 'Create plan'}>
@@ -176,30 +193,61 @@ function Plans() {
             <label className="mb-1 block text-sm text-gray-700">Name</label>
             <input value={editing?.name || ''} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
           </div>
+          <div>
+            <label className="mb-1 block text-sm text-gray-700">Description</label>
+            <textarea rows={3} value={editing?.description || ''} onChange={(e) => setEditing((p) => ({ ...p, description: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm text-gray-700">Price</label>
               <input type="number" step="0.01" value={editing?.price ?? 0} onChange={(e) => setEditing((p) => ({ ...p, price: parseFloat(e.target.value) }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-700">Billing</label>
-              <select value={editing?.billing || 'Monthly'} onChange={(e) => setEditing((p) => ({ ...p, billing: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option>Monthly</option>
-                <option>Yearly</option>
+              <label className="mb-1 block text-sm text-gray-700">Interval</label>
+              <select value={editing?.interval || 'month'} onChange={(e) => setEditing((p) => ({ ...p, interval: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="month">month</option>
+                <option value="year">year</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm text-gray-700">Currency</label>
+              <select value={editing?.currency || 'USD'} onChange={(e) => setEditing((p) => ({ ...p, currency: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="USD">USD</option>
+                <option value="CHF">CHF</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-gray-700">Product type</label>
+              <select value={editing?.productType || 'service'} onChange={(e) => setEditing((p) => ({ ...p, productType: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="service">service</option>
+                <option value="digital">digital</option>
+                <option value="other">other</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-gray-700">Status</label>
-            <select value={editing?.status || 'Active'} onChange={(e) => setEditing((p) => ({ ...p, status: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option>Active</option>
-              <option>Draft</option>
-              <option>Archived</option>
+            <label className="mb-1 block text-sm text-gray-700">Recurring</label>
+            <select value={editing?.recurring ? 'true' : 'false'} onChange={(e) => setEditing((p) => ({ ...p, recurring: e.target.value === 'true' }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="true">true</option>
+              <option value="false">false</option>
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Features (comma separated)</label>
-            <input value={(editing?.features || []).join(', ')} onChange={(e) => setEditing((p) => ({ ...p, features: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm text-gray-700">Active</label>
+              <select value={editing?.isActive ? 'true' : 'false'} onChange={(e) => setEditing((p) => ({ ...p, isActive: e.target.value === 'true' }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-gray-700">Matching count</label>
+              <input value={editing?.matchingCount ?? 0} onChange={(e) => setEditing((p) => ({ ...p, matchingCount: parseInt(e.target.value) || 0 }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setEditOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>

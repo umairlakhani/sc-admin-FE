@@ -1,20 +1,29 @@
 import { useState } from 'react'
+import { authService } from '../lib/api'
 
 function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     if (!email || !password) {
       setError('Please enter email and password')
       return
     }
-    // Simulate successful login
-    localStorage.setItem('auth', 'true')
-    window.location.href = '/dashboard'
+    try {
+      const res = await authService.login({ email, password })
+      // Expecting token in response; adjust key as per API
+      const token = res?.token || res?.accessToken || res?.data?.token
+      if (!token) throw new Error('Invalid login response')
+      localStorage.setItem('auth_token', token)
+      localStorage.setItem('auth', 'true')
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (

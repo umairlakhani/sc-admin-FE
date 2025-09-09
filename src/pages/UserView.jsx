@@ -1,10 +1,23 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { usersData } from '../data'
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { adminService } from '../lib/api'
+import { showToast } from '../lib/toast'
 
 function UserView() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const user = usersData.find((u) => u.id === id)
+  const location = useLocation()
+  const [user, setUser] = useState(location.state?.user || null)
+
+  useEffect(() => {
+    if (user) return
+    let mounted = true
+    // Fallback: fetch single user if not provided from list
+    adminService.getUser(id)
+      .then((data) => { if (mounted) setUser(data) })
+      .catch(() => { showToast('Failed to load user', 'error') })
+    return () => { mounted = false }
+  }, [id, user])
 
   if (!user) {
     return (
@@ -36,15 +49,11 @@ function UserView() {
             </div>
             <div>
               <div className="text-gray-500">First name</div>
-              <div className="mt-1 font-medium text-gray-900">{user.firstName}</div>
+              <div className="mt-1 font-medium text-gray-900">{user.name}</div>
             </div>
             <div>
               <div className="text-gray-500">Last name</div>
-              <div className="mt-1 font-medium text-gray-900">{user.lastName}</div>
-            </div>
-            <div>
-              <div className="text-gray-500">Age</div>
-              <div className="mt-1 font-medium text-gray-900">{user.age}</div>
+              <div className="mt-1 font-medium text-gray-900">{user.surname}</div>
             </div>
             <div>
               <div className="text-gray-500">Role</div>
@@ -52,25 +61,23 @@ function UserView() {
             </div>
             <div className="sm:col-span-2">
               <div className="text-gray-500">Address</div>
-              <div className="mt-1 font-medium text-gray-900">{user.address}</div>
+              <div className="mt-1 font-medium text-gray-900">{user.address || ''}</div>
             </div>
             <div>
               <div className="text-gray-500">Joined</div>
-              <div className="mt-1 font-medium text-gray-900">{user.joinedAt}</div>
+              <div className="mt-1 font-medium text-gray-900">{user.createdAt ? new Date(user.createdAt).toLocaleString() : ''}</div>
             </div>
             <div>
               <div className="text-gray-500">Status</div>
               <div className="mt-1">
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  user.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {user.status}
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${user.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                  {user.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
             <div>
               <div className="text-gray-500">Properties listed</div>
-              <div className="mt-1 font-medium text-gray-900">{user.propertiesCount}</div>
+              <div className="mt-1 font-medium text-gray-900">{user.propertiesCount ?? '-'}</div>
             </div>
           </div>
         </div>
@@ -78,10 +85,10 @@ function UserView() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="text-base font-semibold text-gray-900 mb-2">Quick stats</div>
           <ul className="text-sm space-y-2">
-            <li className="flex items-center justify-between"><span className="text-gray-500">Status</span><span className="font-medium text-gray-900">{user.status}</span></li>
+            <li className="flex items-center justify-between"><span className="text-gray-500">Status</span><span className="font-medium text-gray-900">{user.isActive ? 'Active' : 'Inactive'}</span></li>
             <li className="flex items-center justify-between"><span className="text-gray-500">Role</span><span className="font-medium text-gray-900">{user.role}</span></li>
-            <li className="flex items-center justify-between"><span className="text-gray-500">Joined</span><span className="font-medium text-gray-900">{user.joinedAt}</span></li>
-            <li className="flex items-center justify-between"><span className="text-gray-500">Properties</span><span className="font-medium text-gray-900">{user.propertiesCount}</span></li>
+            <li className="flex items-center justify-between"><span className="text-gray-500">Joined</span><span className="font-medium text-gray-900">{user.createdAt ? new Date(user.createdAt).toLocaleString() : ''}</span></li>
+            <li className="flex items-center justify-between"><span className="text-gray-500">Properties</span><span className="font-medium text-gray-900">{user.propertiesCount ?? '-'}</span></li>
           </ul>
         </div>
       </div>
