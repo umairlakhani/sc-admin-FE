@@ -4,29 +4,111 @@ import { authService } from '../lib/api'
 function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [userType, setUserType] = useState('admin') // 'admin' or 'staff'
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // Function to detect user type based on email
+  const detectUserType = (email) => {
+    const emailLower = email.toLowerCase()
+    console.log('Detecting user type for email:', emailLower)
+    
+    // Check for super admin patterns first (more specific)
+    if (emailLower.includes('superadmin') || 
+        emailLower.includes('super-admin') ||
+        emailLower.includes('administrator') ||
+        emailLower.endsWith('@superadmin.com') ||
+        emailLower.endsWith('@admin.com')) {
+      console.log('Detected as Super Admin')
+      return 'superAdmin'
+    }
+    
+    // Check for general admin patterns
+    if (emailLower.includes('admin')) {
+      console.log('Detected as Super Admin (admin pattern)')
+      return 'superAdmin'
+    }
+    
+    // Check for staff patterns
+    if (emailLower.includes('staff') || 
+        emailLower.includes('employee') ||
+        emailLower.includes('support') ||
+        emailLower.endsWith('@staff.com') ||
+        emailLower.endsWith('@company.com')) {
+      console.log('Detected as Staff')
+      return 'staff'
+    }
+    
+    // Default to staff for other emails
+    console.log('Defaulting to Staff')
+    return 'staff'
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setLoading(true)
+    
     if (!email || !password) {
       setError('Please enter email and password')
+      setLoading(false)
       return
     }
+
     try {
-      const res = userType === 'staff' 
-        ? await authService.staffLogin({ email, password })
-        : await authService.login({ email, password })
+      const userType = detectUserType(email)
+      console.log('Detected user type:', userType)
+      let res
+      let finalUserType = userType
+      
+      // Try the appropriate login method based on detected user type
+      try {
+        if (userType === 'superAdmin') {
+          console.log('Attempting Super Admin login...')
+          res = await authService.superAdminLogin({ email, password })
+          console.log('Super Admin login successful:', res)
+        } else {
+          console.log('Attempting Staff login...')
+          res = await authService.staffLogin({ email, password })
+          console.log('Staff login successful:', res)
+        }
+      } catch (firstError) {
+        // If first attempt fails, try the other method as fallback
+        console.log('First login attempt failed, trying fallback...', firstError.message)
+        try {
+          if (userType === 'superAdmin') {
+            console.log('Fallback: Trying Staff login...')
+            res = await authService.staffLogin({ email, password })
+            finalUserType = 'staff'
+          } else {
+            console.log('Fallback: Trying Super Admin login...')
+            res = await authService.superAdminLogin({ email, password })
+            finalUserType = 'superAdmin'
+          }
+        } catch (secondError) {
+          console.log('Both login attempts failed:', secondError.message)
+          throw new Error('Invalid credentials. Please check your email and password.')
+        }
+      }
+      
       // Expecting token in response; adjust key as per API
       const token = res?.token || res?.accessToken || res?.data?.token
       if (!token) throw new Error('Invalid login response')
+      
       localStorage.setItem('auth_token', token)
       localStorage.setItem('auth', 'true')
-      localStorage.setItem('user_type', userType)
+      localStorage.setItem('user_type', finalUserType)
+      
+      // Store role and permissions if available
+      if (res?.data) {
+        localStorage.setItem('user_role', res.data.role?.name || (finalUserType === 'superAdmin' ? 'Super Admin' : 'Staff'))
+        localStorage.setItem('user_permissions', JSON.stringify(res.data.permissions || ['*']))
+      }
+      
       window.location.href = '/dashboard'
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Login failed. Please check your credentials.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -52,44 +134,35 @@ function SignIn() {
               <div className="font-semibold text-gray-800">Search casa</div>
             </div>
             <h1 className="mt-4 text-xl font-semibold text-gray-900">Sign in</h1>
-            <p className="text-sm text-gray-500">Use your email and password.</p>
+            <p className="text-sm text-gray-500">Enter your email and password. User type will be detected automatically.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Login as</label>
-              <div className="flex gap-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="admin"
-                    checked={userType === 'admin'}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Admin</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="staff"
-                    checked={userType === 'staff'}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Staff</span>
-                </label>
-              </div>
-            </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Email</label>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  // Test detection in real-time
+                  if (e.target.value) {
+                    const detectedType = detectUserType(e.target.value)
+                    console.log(`Email: ${e.target.value} -> Detected as: ${detectedType}`)
+                  }
+                }}
+                placeholder="admin@company.com or staff@company.com"
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={loading}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                System will automatically detect if you're Admin or Staff based on your email
+              </p>
+              {email && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Detected as: <strong>{detectUserType(email)}</strong>
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Password</label>
@@ -99,11 +172,16 @@ function SignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={loading}
               />
             </div>
             {error && <div className="text-sm text-red-600">{error}</div>}
-            <button type="submit" className="w-full rounded-md bg-green-500 text-white px-3 py-2 text-sm font-medium hover:bg-green-600">
-              Sign in
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full rounded-md bg-green-500 text-white px-3 py-2 text-sm font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
         </div>

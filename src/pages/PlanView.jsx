@@ -71,7 +71,7 @@ function PlanView() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="text-sm text-gray-500">Price</div>
-          <div className="mt-1 text-xl font-semibold text-gray-900">{currency.format(Number(plan.price))} {plan.currency?.toUpperCase()}</div>
+          <div className="mt-1 text-xl font-semibold text-gray-900">{plan.price} {plan.currency?.toUpperCase()}</div>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <div className="text-sm text-gray-500">Interval</div>

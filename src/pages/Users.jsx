@@ -191,11 +191,11 @@ function Users() {
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
         <div className="p-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
           <input value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=> e.key==='Enter' && (setPage(1), loadUsers())} placeholder="Search name, email, company..." className="rounded-md border border-gray-300 px-3 py-2 text-sm" />
-          <select value={role} onChange={(e)=>{ setPage(1); setRole(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+          {/* <select value={role} onChange={(e)=>{ setPage(1); setRole(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="">All roles</option>
             <option value="admin">admin</option>
             <option value="user">user</option>
-          </select>
+          </select> */}
           <select value={userType} onChange={(e)=>{ setPage(1); setUserType(e.target.value) }} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
             <option value="">All types</option>
             <option value="offer">offer</option>
@@ -456,7 +456,7 @@ function Users() {
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    {/* <option value="admin">Admin</option> */}
                   </select>
                 </div>
                 <div>

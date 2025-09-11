@@ -48,6 +48,12 @@ export const authService = {
     const res = await api.post('/api/admin/staff/auth/login', { email, password }, { headers: { Authorization: `Bearer ${pre}` } })
     return res.data
   },
+  // super admin login
+  superAdminLogin: async ({ email, password }) => {
+    const pre = await authService.getPreAuthToken()
+    const res = await api.post('/api/admin/auth/login', { email, password }, { headers: { Authorization: `Bearer ${pre}` } })
+    return res.data
+  },
   logout: async () => {
     try {
       await api.post('/api/admin/auth/logout')

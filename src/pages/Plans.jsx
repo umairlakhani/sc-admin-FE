@@ -172,7 +172,8 @@ function Plans() {
               {pageRows.map((plan) => (
                 <tr key={plan.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{plan.name}</td>
-                  <td className="px-4 py-3 text-gray-800">{currency.format(Number(plan.price))}</td>
+                  {/* <td className="px-4 py-3 text-gray-800">{currency.format(Number(plan.price))}</td> */}
+                   <td className="px-4 py-3 text-gray-800">{plan.price}</td>
                   <td className="px-4 py-3 text-gray-800">{plan.interval}</td>
                   <td className="px-4 py-3 text-gray-800 uppercase">{plan.currency}</td>
                   <td className="px-4 py-3 text-gray-800">{plan.matchingCount}</td>
