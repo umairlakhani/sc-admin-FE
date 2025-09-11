@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+// const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+const baseURL = "http://localhost:3000"
 export const api = axios.create({ baseURL, withCredentials: false })
 
 // Attach Authorization header if token is present
@@ -125,6 +126,12 @@ export const adminService = {
   updateModule: (id, payload) => api.put(`/api/admin/modules/${id}`, payload).then((r) => r.data),
   deleteModule: (id) => api.delete(`/api/admin/modules/${id}`).then((r) => r.data),
   listModulePermissions: () => api.get('/api/admin/modules/permissions').then((r) => r.data),
+  // Properties Management
+  listProperties: (params) => api.get('/api/admin/properties', { params }).then((r) => r.data),
+  getProperty: (id) => api.get(`/api/admin/properties/${id}`).then((r) => r.data),
+  updateProperty: (id, payload) => api.put(`/api/admin/properties/${id}`, payload).then((r) => r.data),
+  deleteProperty: (id) => api.delete(`/api/admin/properties/${id}`).then((r) => r.data),
+  togglePropertyDelete: (id) => api.patch(`/api/admin/properties/${id}/toggle-delete`).then((r) => r.data),
 }
 
 

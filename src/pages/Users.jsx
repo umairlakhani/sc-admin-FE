@@ -11,7 +11,7 @@ function Modal({ open, onClose, title, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl border border-gray-200 p-5">
+      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-xl border border-gray-200 p-5">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-base font-semibold text-gray-900">{title}</div>
           <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">Close</button>
@@ -33,7 +33,34 @@ function Users() {
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [current, setCurrent] = useState(null)
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Customer' })
+  const [newUser, setNewUser] = useState({
+    name: '',
+    surname: '',
+    email: '',
+    password: '',
+    companyName: '',
+    address: '',
+    streetNumber: '',
+    country: '',
+    city: '',
+    zipCode: '',
+    countryCode: '',
+    mobile: '',
+    language: 'EN',
+    alertsSound: true,
+    alertsWeb: true,
+    alertsEmail: true,
+    alertsApp: true,
+    agreedTerms: true,
+    vatId: '',
+    isOffer: true,
+    isPrivate: false,
+    userType: 'offer',
+    role: 'user',
+    isActive: true,
+    isVerified: true,
+    isSubscribed: false
+  })
   const [page, setPage] = useState(1)
   const pageSize = 6
   const [totalPages, setTotalPages] = useState(1)
@@ -76,27 +103,46 @@ function Users() {
   useEffect(() => { loadUsers() }, [page, role, userType, isActive, isVerified, isSubscribed])
 
   async function addUser() {
-    if (!newUser.name || !newUser.email) {
-      showToast('Please fill in all required fields', 'error')
+    if (!newUser.name || !newUser.surname || !newUser.address || !newUser.streetNumber || 
+        !newUser.country || !newUser.city || !newUser.zipCode || !newUser.countryCode || 
+        !newUser.mobile || !newUser.email || !newUser.password) {
+      showToast('Please fill in all required fields (marked with *)', 'error')
       return
     }
     
     setSaving(true)
     try {
-      await adminService.createUser({
-        name: newUser.name,
-        surname: newUser.surname || '',
-        email: newUser.email,
-        companyName: newUser.companyName || '',
-        role: (newUser.role || 'admin').toLowerCase(),
-        userType: newUser.userType || 'offer',
-        isActive: true,
-        isVerified: true,
-        isSubscribed: false,
-      })
+      await adminService.createUser(newUser)
       showToast('User created successfully')
       setAddOpen(false)
-      setNewUser({ name: '', email: '', role: 'Customer' })
+      setNewUser({
+        name: '',
+        surname: '',
+        email: '',
+        password: '',
+        companyName: '',
+        address: '',
+        streetNumber: '',
+        country: '',
+        city: '',
+        zipCode: '',
+        countryCode: '',
+        mobile: '',
+        language: 'EN',
+        alertsSound: true,
+        alertsWeb: true,
+        alertsEmail: true,
+        alertsApp: true,
+        agreedTerms: true,
+        vatId: '',
+        isOffer: true,
+        isPrivate: false,
+        userType: 'offer',
+        role: 'user',
+        isActive: true,
+        isVerified: true,
+        isSubscribed: false
+      })
       loadUsers()
     } catch (err) { 
       showToast(err.message || 'Failed to create user', 'error') 
@@ -244,46 +290,289 @@ function Users() {
 
       {/* Add user */}
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add user">
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Name</label>
-            <input value={newUser.name} onChange={(e) => setNewUser((p) => ({ ...p, name: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Surname</label>
-            <input value={newUser.surname || ''} onChange={(e) => setNewUser((p) => ({ ...p, surname: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Email</label>
-            <input type="email" value={newUser.email} onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Company</label>
-            <input value={newUser.companyName || ''} onChange={(e) => setNewUser((p) => ({ ...p, companyName: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">Role</label>
-            <select value={newUser.role} onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="admin">admin</option>
-              <option value="user">user</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-700">User type</label>
-            <select value={newUser.userType || 'offer'} onChange={(e) => setNewUser((p) => ({ ...p, userType: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="offer">offer</option>
-              <option value="demand">demand</option>
-            </select>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={() => setAddOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button 
-              onClick={addUser} 
-              disabled={saving}
-              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Creating...' : 'Create'}
-            </button>
+        <div className="max-h-[80vh] overflow-y-auto">
+          <div className="space-y-6">
+            {/* Personal Information */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Name *</label>
+                  <input 
+                    value={newUser.name} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, name: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Surname *</label>
+                  <input 
+                    value={newUser.surname} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, surname: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Email *</label>
+                  <input 
+                    type="email" 
+                    value={newUser.email} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Password *</label>
+                  <input 
+                    type="password" 
+                    value={newUser.password} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, password: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Mobile *</label>
+                  <input 
+                    value={newUser.mobile} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, mobile: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Language</label>
+                  <select 
+                    value={newUser.language} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, language: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="EN">English</option>
+                    <option value="DE">German</option>
+                    <option value="FR">French</option>
+                    <option value="IT">Italian</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Address Information */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Address *</label>
+                  <input 
+                    value={newUser.address} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, address: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Street Number *</label>
+                  <input 
+                    value={newUser.streetNumber} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, streetNumber: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">City *</label>
+                  <input 
+                    value={newUser.city} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, city: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Zip Code *</label>
+                  <input 
+                    value={newUser.zipCode} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, zipCode: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Country *</label>
+                  <input 
+                    value={newUser.country} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, country: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Country Code *</label>
+                  <input 
+                    value={newUser.countryCode} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, countryCode: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                    placeholder="e.g., +41"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Business Information */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Company Name</label>
+                  <input 
+                    value={newUser.companyName} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, companyName: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">VAT ID</label>
+                  <input 
+                    value={newUser.vatId} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, vatId: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Settings */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Account Settings</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Role</label>
+                  <select 
+                    value={newUser.role} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">User Type</label>
+                  <select 
+                    value={newUser.userType} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, userType: e.target.value }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="offer">Offer</option>
+                    <option value="demand">Demand</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Account Status</label>
+                  <select 
+                    value={newUser.isActive} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, isActive: e.target.value === 'true' }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-700">Verification Status</label>
+                  <select 
+                    value={newUser.isVerified} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, isVerified: e.target.value === 'true' }))} 
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="true">Verified</option>
+                    <option value="false">Unverified</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Preferences */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.alertsSound} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, alertsSound: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">Sound Alerts</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.alertsWeb} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, alertsWeb: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">Web Alerts</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.alertsEmail} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, alertsEmail: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">Email Alerts</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.alertsApp} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, alertsApp: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">App Alerts</label>
+                </div>
+              </div>
+            </div>
+
+            {/* Terms and Privacy */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Terms and Privacy</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.agreedTerms} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, agreedTerms: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">Agreed to Terms and Conditions</label>
+                </div>
+                <div className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newUser.isPrivate} 
+                    onChange={(e) => setNewUser((p) => ({ ...p, isPrivate: e.target.checked }))} 
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">Private Account</label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
+              <button onClick={() => setAddOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
+              <button 
+                onClick={addUser} 
+                disabled={saving}
+                className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Creating...' : 'Create User'}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

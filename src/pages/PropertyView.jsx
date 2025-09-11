@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { propertiesData, usersData } from '../data'
+import { adminService } from '../lib/api'
+import { showToast } from '../lib/toast'
 
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -18,16 +20,34 @@ function Section({ title, children, defaultOpen = true }) {
 function PropertyView() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const property = propertiesData.find((p) => p.id === id)
-  const owner = usersData.find((u) => u.id === property?.ownerId)
+  const [property, setProperty] = useState(null)
+  const [loading, setLoading] = useState(false)
   const currency = useMemo(
-    () => new Intl.NumberFormat('en-IN', { style: 'currency', currency: property?.currency || 'INR' }),
+    () => new Intl.NumberFormat('en-CH', { style: 'currency', currency: property?.currency || 'CHF' }),
     [property?.currency]
   )
   const [propRules, setPropRules] = useState({})
   const [customRules, setCustomRules] = useState([])
-  const [attributes, setAttributes] = useState(['bedrooms','bathrooms','price','type','location_radius_km','areaSqft'])
+  const [attributes, setAttributes] = useState(['bedrooms','bathrooms','price','type','location_radius_km','squareMeters'])
   const [newAttr, setNewAttr] = useState('')
+
+  // Load property data
+  async function loadProperty() {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await adminService.getProperty(id)
+      setProperty(res?.data || res)
+    } catch (err) {
+      showToast(err.message || 'Failed to load property', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadProperty()
+  }, [id])
 
   useEffect(() => {
     if (!property) return
@@ -36,7 +56,7 @@ function PropertyView() {
     if (saved) {
       setPropRules(JSON.parse(saved))
     } else {
-      setPropRules({ bedrooms: true, bathrooms: true, price: true, type: true, location_radius_km: true, areaSqft: false })
+      setPropRules({ bedrooms: true, bathrooms: true, price: true, type: true, location_radius_km: true, squareMeters: false })
     }
     const key2 = `prop_custom_rules_${property.id}`
     const saved2 = localStorage.getItem(key2)
@@ -55,6 +75,19 @@ function PropertyView() {
     localStorage.setItem(key, JSON.stringify(customRules))
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-500">Loading property...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!property) {
     return (
       <div className="space-y-4">
@@ -67,7 +100,7 @@ function PropertyView() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">{property.title}</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">{property.propertyTitle || 'Untitled Property'}</h2>
         <button onClick={() => navigate('/properties')} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Back</button>
       </div>
 
@@ -85,78 +118,98 @@ function PropertyView() {
           <Section title="Overview">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-gray-500">Type</div>
-                <div className="mt-1 font-medium text-gray-900">{property.type}</div>
+                <div className="text-gray-500">Property Type</div>
+                <div className="mt-1 font-medium text-gray-900 capitalize">{property.propertyType?.replace('/', ' / ')}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">Offering Type</div>
+                <div className="mt-1 font-medium text-gray-900 capitalize">{property.offeringType}</div>
               </div>
               <div>
                 <div className="text-gray-500">Price</div>
-                <div className="mt-1 font-medium text-gray-900">{property.price}</div>
-
-                {/* <div className="mt-1 font-medium text-gray-900">{currency.format(property.price)}</div> */}
+                <div className="mt-1 font-medium text-gray-900">{currency.format(property.price)}</div>
+              </div>
+              <div>
+                <div className="text-gray-500">List Type</div>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    property.listType === 'offer' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
+                  }`}>
+                    {property.listType}
+                  </span>
+                </div>
               </div>
               <div>
                 <div className="text-gray-500">Bedrooms</div>
                 <div className="mt-1 font-medium text-gray-900">{property.bedrooms}</div>
               </div>
               <div>
-                <div className="text-gray-500">Bathrooms</div>
-                <div className="mt-1 font-medium text-gray-900">{property.bathrooms}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Area (sqft)</div>
-                <div className="mt-1 font-medium text-gray-900">{property.areaSqft}</div>
+                <div className="text-gray-500">Area (m²)</div>
+                <div className="mt-1 font-medium text-gray-900">{property.squareMeters}</div>
               </div>
               <div>
                 <div className="text-gray-500">Status</div>
                 <div className="mt-1">
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    property.status === 'Listed' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
+                    property.deletedAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
                   }`}>
-                    {property.status}
+                    {property.deletedAt ? 'Deleted' : 'Active'}
                   </span>
                 </div>
+              </div>
+              <div>
+                <div className="text-gray-500">Currency</div>
+                <div className="mt-1 font-medium text-gray-900">{property.currency}</div>
               </div>
             </div>
           </Section>
 
           <Section title="Location">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-500">Address</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.address}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">City</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.city}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">State</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.state}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Country</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.country}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Latitude</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.lat}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Longitude</div>
-                <div className="mt-1 font-medium text-gray-900">{property.location.lng}</div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <MapPreview lat={property.location.lat} lng={property.location.lng} />
-              <a
-                href={`https://www.google.com/maps?q=${property.location.lat},${property.location.lng}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-block text-sm text-green-600 hover:underline"
-              >
-                Open in Google Maps
-              </a>
-            </div>
+            {property.location ? (
+              <>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-gray-500">Address</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.address || 'Not specified'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">City</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.city || 'Not specified'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">State</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.state || 'Not specified'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Country</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.country || 'Not specified'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Latitude</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.lat || 'Not specified'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Longitude</div>
+                    <div className="mt-1 font-medium text-gray-900">{property.location.lng || 'Not specified'}</div>
+                  </div>
+                </div>
+                {property.location.lat && property.location.lng && (
+                  <div className="mt-4">
+                    <MapPreview lat={property.location.lat} lng={property.location.lng} />
+                    <a
+                      href={`https://www.google.com/maps?q=${property.location.lat},${property.location.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-block text-sm text-green-600 hover:underline"
+                    >
+                      Open in Google Maps
+                    </a>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-gray-500">Location information not available</div>
+            )}
           </Section>
 
           <Section title="Matching options (per property)">
@@ -164,7 +217,11 @@ function PropertyView() {
               {attributes.map((attr) => (
                 <label key={attr} className="inline-flex items-center gap-2">
                   <input type="checkbox" checked={propRules[attr] ?? true} onChange={(e) => setPropRules((r) => ({ ...r, [attr]: e.target.checked }))} />
-                  <span className="text-gray-800">{attr === 'areaSqft' ? 'Area (sqft)' : attr.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+                  <span className="text-gray-800">
+                    {attr === 'squareMeters' ? 'Area (m²)' : 
+                     attr === 'areaSqft' ? 'Area (sqft)' : 
+                     attr.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
                 </label>
               ))}
             </div>
@@ -256,15 +313,15 @@ function PropertyView() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="text-base font-semibold text-gray-900 mb-2">Owner</div>
-            {owner ? (
+            {property.User ? (
               <div className="text-sm space-y-1">
-                <div className="flex items-center justify-between"><span className="text-gray-500">Name</span><span className="font-medium text-gray-900">{owner.firstName} {owner.lastName}</span></div>
-                <div className="flex items-center justify-between"><span className="text-gray-500">Email</span><span className="font-medium text-gray-900">{owner.email}</span></div>
-                <div className="flex items-center justify-between"><span className="text-gray-500">Role</span><span className="font-medium text-gray-900">{owner.role}</span></div>
-                <div className="flex items-center justify-between"><span className="text-gray-500">Status</span><span className="font-medium text-gray-900">{owner.status}</span></div>
+                <div className="flex items-center justify-between"><span className="text-gray-500">Name</span><span className="font-medium text-gray-900">{property.User.name} {property.User.surname}</span></div>
+                <div className="flex items-center justify-between"><span className="text-gray-500">Email</span><span className="font-medium text-gray-900">{property.User.email}</span></div>
+                <div className="flex items-center justify-between"><span className="text-gray-500">Role</span><span className="font-medium text-gray-900">{property.User.role}</span></div>
+                <div className="flex items-center justify-between"><span className="text-gray-500">User ID</span><span className="font-medium text-gray-900">{property.User.id}</span></div>
               </div>
             ) : (
-              <div className="text-sm text-gray-500">Unknown owner</div>
+              <div className="text-sm text-gray-500">Owner information not available</div>
             )}
           </div>
 
@@ -272,7 +329,12 @@ function PropertyView() {
             <div className="text-base font-semibold text-gray-900 mb-2">Meta</div>
             <ul className="text-sm space-y-2">
               <li className="flex items-center justify-between"><span className="text-gray-500">Property ID</span><span className="font-medium text-gray-900">{property.id}</span></li>
-              <li className="flex items-center justify-between"><span className="text-gray-500">Created</span><span className="font-medium text-gray-900">{property.createdAt}</span></li>
+              <li className="flex items-center justify-between"><span className="text-gray-500">User ID</span><span className="font-medium text-gray-900">{property.userId}</span></li>
+              <li className="flex items-center justify-between"><span className="text-gray-500">Created</span><span className="font-medium text-gray-900">{property.createdAt ? new Date(property.createdAt).toLocaleString() : 'N/A'}</span></li>
+              <li className="flex items-center justify-between"><span className="text-gray-500">Updated</span><span className="font-medium text-gray-900">{property.updatedAt ? new Date(property.updatedAt).toLocaleString() : 'N/A'}</span></li>
+              {property.deletedAt && (
+                <li className="flex items-center justify-between"><span className="text-gray-500">Deleted</span><span className="font-medium text-gray-900">{new Date(property.deletedAt).toLocaleString()}</span></li>
+              )}
             </ul>
           </div>
         </div>
