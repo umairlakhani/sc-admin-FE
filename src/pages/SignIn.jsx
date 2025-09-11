@@ -4,6 +4,7 @@ import { authService } from '../lib/api'
 function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [userType, setUserType] = useState('admin') // 'admin' or 'staff'
   const [error, setError] = useState('')
 
   async function handleSubmit(e) {
@@ -14,12 +15,15 @@ function SignIn() {
       return
     }
     try {
-      const res = await authService.login({ email, password })
+      const res = userType === 'staff' 
+        ? await authService.staffLogin({ email, password })
+        : await authService.login({ email, password })
       // Expecting token in response; adjust key as per API
       const token = res?.token || res?.accessToken || res?.data?.token
       if (!token) throw new Error('Invalid login response')
       localStorage.setItem('auth_token', token)
       localStorage.setItem('auth', 'true')
+      localStorage.setItem('user_type', userType)
       window.location.href = '/dashboard'
     } catch (err) {
       setError(err.message)
@@ -52,6 +56,31 @@ function SignIn() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Login as</label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="admin"
+                    checked={userType === 'admin'}
+                    onChange={(e) => setUserType(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">Admin</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="staff"
+                    checked={userType === 'staff'}
+                    onChange={(e) => setUserType(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-700">Staff</span>
+                </label>
+              </div>
+            </div>
             <div>
               <label className="block text-sm text-gray-700 mb-1">Email</label>
               <input

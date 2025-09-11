@@ -90,7 +90,9 @@ function PropertyView() {
               </div>
               <div>
                 <div className="text-gray-500">Price</div>
-                <div className="mt-1 font-medium text-gray-900">{currency.format(property.price)}</div>
+                <div className="mt-1 font-medium text-gray-900">{property.price}</div>
+
+                {/* <div className="mt-1 font-medium text-gray-900">{currency.format(property.price)}</div> */}
               </div>
               <div>
                 <div className="text-gray-500">Bedrooms</div>

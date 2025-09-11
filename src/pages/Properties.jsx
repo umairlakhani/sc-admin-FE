@@ -37,6 +37,8 @@ function Properties() {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
   const start = (page - 1) * pageSize
   const pageRows = rows.slice(start, start + pageSize)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   function openCreate() {
     setCurrent({
@@ -57,15 +59,28 @@ function Properties() {
   }
 
   function saveProperty() {
-    if (!current.title) return
-    setRows((prev) => {
-      const exists = prev.some((p) => p.id === current.id && current.id)
-      if (exists) return prev.map((p) => (p.id === current.id ? { ...current } : p))
-      const id = `p-${Math.floor(Math.random() * 9000) + 1000}`
-      return [{ ...current, id }, ...prev]
-    })
-    setCreateOpen(false)
-    setEditOpen(false)
+    if (!current.title) {
+      showToast('Please enter a property title', 'error')
+      return
+    }
+    
+    setSaving(true)
+    // Simulate API call delay
+    setTimeout(() => {
+      setRows((prev) => {
+        const exists = prev.some((p) => p.id === current.id && current.id)
+        if (exists) {
+          showToast('Property updated successfully')
+          return prev.map((p) => (p.id === current.id ? { ...current } : p))
+        }
+        const id = `p-${Math.floor(Math.random() * 9000) + 1000}`
+        showToast('Property created successfully')
+        return [{ ...current, id }, ...prev]
+      })
+      setCreateOpen(false)
+      setEditOpen(false)
+      setSaving(false)
+    }, 500)
   }
 
   function confirmDelete(row) {
@@ -74,8 +89,14 @@ function Properties() {
   }
 
   function doDelete() {
-    setRows((prev) => prev.filter((r) => r.id !== current.id))
-    setDeleteOpen(false)
+    setDeleting(true)
+    // Simulate API call delay
+    setTimeout(() => {
+      setRows((prev) => prev.filter((r) => r.id !== current.id))
+      showToast('Property deleted successfully')
+      setDeleteOpen(false)
+      setDeleting(false)
+    }, 500)
   }
 
   return (
@@ -113,7 +134,9 @@ function Properties() {
                 <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.title}</td>
                   <td className="px-4 py-3 text-gray-800">{p.type}</td>
-                  <td className="px-4 py-3 text-gray-800">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: p.currency }).format(p.price)}</td>
+                  {/* <td className="px-4 py-3 text-gray-800">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: p.currency }).format(p.price)}</td> */}
+                  <td className="px-4 py-3 text-gray-800">{p.price}</td>
+
                   <td className="px-4 py-3 text-gray-800">{p.bedrooms}</td>
                   <td className="px-4 py-3 text-gray-800">{p.bathrooms}</td>
                   <td className="px-4 py-3 text-gray-800">{p.areaSqft}</td>
@@ -258,7 +281,13 @@ function Properties() {
 
             <div className="flex items-center justify-end gap-2">
               <button onClick={() => { setCreateOpen(false); setEditOpen(false) }} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button onClick={saveProperty} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save</button>
+              <button 
+                onClick={saveProperty} 
+                disabled={saving}
+                className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           </div>
         )}
@@ -270,7 +299,13 @@ function Properties() {
           <p className="text-sm text-gray-700">Are you sure you want to delete <span className="font-medium">{current?.title}</span>?</p>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={doDelete} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+            <button 
+              onClick={doDelete} 
+              disabled={deleting}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
       </Modal>

@@ -38,6 +38,11 @@ function Users() {
   const pageSize = 6
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [suspending, setSuspending] = useState(false)
   const [search, setSearch] = useState('')
   const [role, setRole] = useState('')
   const [userType, setUserType] = useState('')
@@ -71,7 +76,12 @@ function Users() {
   useEffect(() => { loadUsers() }, [page, role, userType, isActive, isVerified, isSubscribed])
 
   async function addUser() {
-    if (!newUser.name || !newUser.email) return
+    if (!newUser.name || !newUser.email) {
+      showToast('Please fill in all required fields', 'error')
+      return
+    }
+    
+    setSaving(true)
     try {
       await adminService.createUser({
         name: newUser.name,
@@ -84,25 +94,43 @@ function Users() {
         isVerified: true,
         isSubscribed: false,
       })
-      showToast('User created')
+      showToast('User created successfully')
       setAddOpen(false)
       setNewUser({ name: '', email: '', role: 'Customer' })
       loadUsers()
-    } catch (_) { showToast('Failed to create user', 'error') }
+    } catch (err) { 
+      showToast(err.message || 'Failed to create user', 'error') 
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function updateUser() {
+    setSaving(true)
     try {
       await adminService.updateUser(current.id, current)
-      showToast('User updated')
+      showToast('User updated successfully')
       setEditOpen(false)
       loadUsers()
-    } catch (_) { showToast('Update failed', 'error') }
+    } catch (err) { 
+      showToast(err.message || 'Update failed', 'error') 
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function suspendUser() {
-    try { await adminService.toggleUserStatus(current.id); showToast('Status updated'); loadUsers() } catch(_) { showToast('Failed to update status','error') }
-    setSuspendOpen(false)
+    setSuspending(true)
+    try { 
+      await adminService.toggleUserStatus(current.id)
+      showToast('Status updated successfully')
+      loadUsers()
+      setSuspendOpen(false)
+    } catch(err) { 
+      showToast(err.message || 'Failed to update status','error') 
+    } finally {
+      setSuspending(false)
+    }
   }
 
   return (
@@ -249,7 +277,13 @@ function Users() {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setAddOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={addUser} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Create</button>
+            <button 
+              onClick={addUser} 
+              disabled={saving}
+              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Creating...' : 'Create'}
+            </button>
           </div>
         </div>
       </Modal>
@@ -271,7 +305,13 @@ function Users() {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setEditOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={updateUser} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save</button>
+            <button 
+              onClick={updateUser} 
+              disabled={saving}
+              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
           </div>
         </div>
       </Modal>
@@ -311,7 +351,13 @@ function Users() {
           <p className="text-sm text-gray-700">Are you sure you want to {current?.status === 'Suspended' ? 'unsuspend' : 'suspend'} <span className="font-medium">{current?.name}</span>?</p>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setSuspendOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={suspendUser} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Confirm</button>
+            <button 
+              onClick={suspendUser} 
+              disabled={suspending}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {suspending ? 'Updating...' : 'Confirm'}
+            </button>
           </div>
         </div>
       </Modal>
@@ -322,7 +368,25 @@ function Users() {
           <p className="text-sm text-gray-700">Are you sure you want to delete <span className="font-medium">{current?.name} {current?.surname}</span>?</p>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={async () => { try { await adminService.deleteUser(current.id); showToast('User deleted'); loadUsers() } catch(_) { showToast('Failed to delete user','error') } finally { setDeleteOpen(false) } }} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+            <button 
+              onClick={async () => { 
+                setDeleting(true)
+                try { 
+                  await adminService.deleteUser(current.id)
+                  showToast('User deleted successfully')
+                  loadUsers()
+                  setDeleteOpen(false)
+                } catch(err) { 
+                  showToast(err.message || 'Failed to delete user','error') 
+                } finally { 
+                  setDeleting(false)
+                } 
+              }} 
+              disabled={deleting}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
       </Modal>

@@ -1,10 +1,12 @@
-import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent, CreditCard, UserCheck, Shield } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 const items = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/plans', label: 'Plans', icon: BadgePercent },
   { to: '/users', label: 'Users', icon: Users },
+  { to: '/staff', label: 'Staff', icon: UserCheck },
+  { to: '/roles-permissions', label: 'Roles & Permissions', icon: Shield },
   { to: '/properties', label: 'Manage Properties', icon: Building2 },
   { to: '/billing', label: 'Subscriptions & Payments', icon: CreditCard },
   { to: '/support', label: 'Support Requests', icon: LifeBuoy },
@@ -39,6 +41,9 @@ function Sidebar() {
         <div className="p-4 mt-auto">
           <button
             onClick={() => {
+              // Clear all authentication related localStorage items
+              localStorage.removeItem('auth_token')
+              localStorage.removeItem('user_type')
               localStorage.removeItem('auth')
               window.location.href = '/signin'
             }}

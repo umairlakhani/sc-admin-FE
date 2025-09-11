@@ -11,6 +11,9 @@ import Notifications from './pages/Notifications'
 import Support from './pages/Support'
 import SignIn from './pages/SignIn'
 import Billing from './pages/Billing'
+import Staff from './pages/Staff'
+import StaffView from './pages/StaffView'
+import RolesPermissions from './pages/RolesPermissions'
 
 function PrivateRoute({ children }) {
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('auth_token')
@@ -36,11 +39,14 @@ function App() {
           <Route path="plans/:id" element={<PlanView />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserView />} />
+          <Route path="staff" element={<Staff />} />
+          <Route path="staff/:id" element={<StaffView />} />
           <Route path="properties" element={<Properties />} />
           <Route path="properties/:id" element={<PropertyView />} />
           <Route path="support" element={<Support />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="billing" element={<Billing />} />
+          <Route path="roles-permissions" element={<RolesPermissions />} />
         </Route>
       </Routes>
     </BrowserRouter>

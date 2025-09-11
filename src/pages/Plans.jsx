@@ -36,6 +36,8 @@ function Plans() {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('')
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const pageRows = plans
 
   const currency = useMemo(() => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }), [])
@@ -51,7 +53,16 @@ function Plans() {
   }
 
   async function savePlan() {
-    if (!editing.name) return
+    if (!editing.name) {
+      showToast('Please enter a plan name', 'error')
+      return
+    }
+    if (!editing.price || editing.price <= 0) {
+      showToast('Please enter a valid price', 'error')
+      return
+    }
+    
+    setSaving(true)
     try {
       if (editing.id) {
         await adminService.updatePlan(editing.id, {
@@ -65,6 +76,7 @@ function Plans() {
           matchingCount: Number(editing.matchingCount),
           isActive: !!editing.isActive,
         })
+        showToast('Plan updated successfully')
       } else {
         await adminService.createPlan({
           name: editing.name,
@@ -77,11 +89,15 @@ function Plans() {
           matchingCount: Number(editing.matchingCount),
           isActive: !!editing.isActive,
         })
+        showToast('Plan created successfully')
       }
       setEditOpen(false)
-      showToast(editing.id ? 'Plan updated' : 'Plan created')
       loadPlans()
-    } catch (_) {}
+    } catch (err) {
+      showToast(err.message || 'Failed to save plan', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function confirmDelete(plan) {
@@ -90,9 +106,17 @@ function Plans() {
   }
 
   async function doDelete() {
-    try { await adminService.deletePlan(editing.id); showToast('Plan deleted') } catch (_) { showToast('Failed to delete plan', 'error') }
-    setDeleteOpen(false)
-    loadPlans()
+    setDeleting(true)
+    try { 
+      await adminService.deletePlan(editing.id)
+      showToast('Plan deleted successfully')
+      setDeleteOpen(false)
+      loadPlans()
+    } catch (err) { 
+      showToast(err.message || 'Failed to delete plan', 'error') 
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function loadPlans() {
@@ -251,7 +275,13 @@ function Plans() {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setEditOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={savePlan} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save</button>
+            <button 
+              onClick={savePlan} 
+              disabled={saving}
+              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
           </div>
         </div>
       </Modal>
@@ -261,7 +291,13 @@ function Plans() {
           <p className="text-sm text-gray-700">Are you sure you want to delete <span className="font-medium">{editing?.name}</span>? This action cannot be undone.</p>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={doDelete} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+            <button 
+              onClick={doDelete} 
+              disabled={deleting}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
       </Modal>

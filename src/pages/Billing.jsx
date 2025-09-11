@@ -22,16 +22,38 @@ function Billing() {
   const [plans, setPlans] = useState(plansData)
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState({ name: '', price: 0, currency: 'GBP', billing: 'Monthly' })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   function createPlan() {
-    if (!editing.name) return
-    const id = editing.name.toLowerCase().replace(/\s+/g, '-')
-    setPlans((p) => [...p, { id, features: [], status: 'Active', ...editing }])
-    setCreateOpen(false)
+    if (!editing.name) {
+      showToast('Please enter a plan name', 'error')
+      return
+    }
+    if (!editing.price || editing.price <= 0) {
+      showToast('Please enter a valid price', 'error')
+      return
+    }
+    
+    setSaving(true)
+    // Simulate API call delay
+    setTimeout(() => {
+      const id = editing.name.toLowerCase().replace(/\s+/g, '-')
+      setPlans((p) => [...p, { id, features: [], status: 'Active', ...editing }])
+      showToast('Plan created successfully')
+      setCreateOpen(false)
+      setSaving(false)
+    }, 500)
   }
 
   function deletePlan(id) {
-    setPlans((p) => p.filter((x) => x.id !== id))
+    setDeleting(true)
+    // Simulate API call delay
+    setTimeout(() => {
+      setPlans((p) => p.filter((x) => x.id !== id))
+      showToast('Plan deleted successfully')
+      setDeleting(false)
+    }, 500)
   }
 
   return (
@@ -76,7 +98,13 @@ function Billing() {
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${p.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{p.status}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => deletePlan(p.id)} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50"><Trash2 size={14} /> Delete</button>
+                    <button 
+                      onClick={() => deletePlan(p.id)} 
+                      disabled={deleting}
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -131,7 +159,13 @@ function Billing() {
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => setCreateOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 hover:bg-gray-50">Cancel</button>
-            <button onClick={createPlan} className="rounded-md bg-green-500 px-3 py-2 text-white hover:bg-green-600">Create</button>
+            <button 
+              onClick={createPlan} 
+              disabled={saving}
+              className="rounded-md bg-green-500 px-3 py-2 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Creating...' : 'Create'}
+            </button>
           </div>
         </div>
       </Modal>

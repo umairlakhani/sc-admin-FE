@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+const baseURL = "http://localhost:3000"
 
 export const api = axios.create({ baseURL, withCredentials: false })
 
@@ -42,14 +42,23 @@ export const authService = {
     const res = await api.post('/api/admin/auth/login', { email, password }, { headers: { Authorization: `Bearer ${pre}` } })
     return res.data
   },
+  // staff login
+  staffLogin: async ({ email, password }) => {
+    const pre = await authService.getPreAuthToken()
+    const res = await api.post('/api/admin/staff/auth/login', { email, password }, { headers: { Authorization: `Bearer ${pre}` } })
+    return res.data
+  },
   logout: async () => {
     try {
       await api.post('/api/admin/auth/logout')
     } catch (_) {
       // ignore
+    } finally {
+      // Always clear localStorage items regardless of API call success
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user_type')
+      localStorage.removeItem('auth')
     }
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('auth')
   },
 }
 
@@ -75,6 +84,48 @@ export const adminService = {
   deleteUser: (userId) => api.delete(`/api/admin/users/${userId}`).then((r) => r.data),
   updateUserPassword: (userId, payload) => api.put(`/api/admin/users/${userId}/password`, payload).then((r) => r.data),
   toggleUserStatus: (userId) => api.patch(`/api/admin/users/${userId}/toggle-status`).then((r) => r.data),
+  // Staff Management
+  listStaff: (params) => api.get('/api/admin/staff', { params }).then((r) => r.data),
+  createStaff: (payload) => api.post('/api/admin/staff', payload).then((r) => r.data),
+  getStaff: (staffId) => api.get(`/api/admin/staff/${staffId}`).then((r) => r.data),
+  updateStaff: (staffId, payload) => api.put(`/api/admin/staff/${staffId}`, payload).then((r) => r.data),
+  deleteStaff: (staffId) => api.delete(`/api/admin/staff/${staffId}`).then((r) => r.data),
+  // Staff Permissions
+  getStaffPermissions: (staffId) => api.get(`/api/admin/modules/staff/${staffId}/permissions`).then((r) => r.data),
+  updateStaffPermissions: (staffId, payload) => api.put(`/api/admin/modules/staff/${staffId}/permissions`, payload).then((r) => r.data),
+  // Roles
+  listRoles: (params) => api.get('/api/admin/rbac/roles', { params }).then((r) => r.data),
+  // Modules and Permissions
+  listModules: () => api.get('/api/admin/modules').then((r) => r.data),
+  // Notifications
+  listNotifications: (params) => api.get('/api/admin/notifications', { params }).then((r) => r.data),
+  getNotification: (id) => api.get(`/api/admin/notifications/${id}`).then((r) => r.data),
+  updateNotification: (id, payload) => api.put(`/api/admin/notifications/${id}`, payload).then((r) => r.data),
+  deleteNotification: (id) => api.delete(`/api/admin/notifications/${id}`).then((r) => r.data),
+  sendNotification: (payload) => api.post('/api/admin/notifications/send', payload).then((r) => r.data),
+  sendBatchNotifications: (payload) => api.post('/api/admin/notifications/send-batch', payload).then((r) => r.data),
+  resendNotification: (id) => api.post(`/api/admin/notifications/${id}/resend`).then((r) => r.data),
+  // Support Tickets
+  listSupportTickets: (params) => api.get('/api/admin/support', { params }).then((r) => r.data),
+  getSupportTicket: (id) => api.get(`/api/admin/support/${id}`).then((r) => r.data),
+  deleteSupportTicket: (id) => api.delete(`/api/admin/support/${id}`).then((r) => r.data),
+  updateSupportTicketStatus: (id, payload) => api.patch(`/api/admin/support/${id}/status`, payload).then((r) => r.data),
+  addSupportTicketResponse: (id, payload) => api.post(`/api/admin/support/${id}/response`, payload).then((r) => r.data),
+  getSupportTicketComments: (id) => api.get(`/api/admin/support/${id}/comments`).then((r) => r.data),
+  getSupportStatistics: () => api.get('/api/admin/support/statistics').then((r) => r.data),
+  // Roles Management
+  listRoles: (params) => api.get('/api/admin/rbac/roles', { params }).then((r) => r.data),
+  createRole: (payload) => api.post('/api/admin/rbac/roles', payload).then((r) => r.data),
+  getRole: (id) => api.get(`/api/admin/rbac/roles/${id}`).then((r) => r.data),
+  updateRole: (id, payload) => api.put(`/api/admin/rbac/roles/${id}`, payload).then((r) => r.data),
+  deleteRole: (id) => api.delete(`/api/admin/rbac/roles/${id}`).then((r) => r.data),
+  // Modules Management
+  listModules: () => api.get('/api/admin/modules').then((r) => r.data),
+  createModule: (payload) => api.post('/api/admin/modules', payload).then((r) => r.data),
+  getModule: (id) => api.get(`/api/admin/modules/${id}`).then((r) => r.data),
+  updateModule: (id, payload) => api.put(`/api/admin/modules/${id}`, payload).then((r) => r.data),
+  deleteModule: (id) => api.delete(`/api/admin/modules/${id}`).then((r) => r.data),
+  listModulePermissions: () => api.get('/api/admin/modules/permissions').then((r) => r.data),
 }
 
 
