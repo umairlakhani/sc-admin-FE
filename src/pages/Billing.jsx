@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { plansData } from '../data'
-import { Plus, Trash2, Download } from 'lucide-react'
+import { Plus, Trash2, Download, Eye, MoreVertical } from 'lucide-react'
+import { adminService } from '../lib/api'
+import Pagination from '../components/Pagination'
 
 function Modal({ open, onClose, title, children }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-xl rounded-2xl bg-white shadow-xl border border-gray-200 p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-base font-semibold text-gray-900">{title}</div>
+      <div className="relative w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white shadow-xl border border-gray-200 p-6 overflow-y-auto">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-lg font-semibold text-gray-900">{title}</div>
           <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">Close</button>
         </div>
         {children}
@@ -19,41 +21,85 @@ function Modal({ open, onClose, title, children }) {
 }
 
 function Billing() {
-  const [plans, setPlans] = useState(plansData)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editing, setEditing] = useState({ name: '', price: 0, currency: 'GBP', billing: 'Monthly' })
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  // Subscription analytics state
+  const [analytics, setAnalytics] = useState(null)
+  const [subscriptions, setSubscriptions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [selectedSubscription, setSelectedSubscription] = useState(null)
+  const [planDetails, setPlanDetails] = useState(null)
+  const [userDetails, setUserDetails] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
-  function createPlan() {
-    if (!editing.name) {
-      showToast('Please enter a plan name', 'error')
-      return
+  // Load analytics data
+  async function loadAnalytics() {
+    try {
+      const response = await adminService.getSubscriptionAnalytics({ period: '7d' })
+      setAnalytics(response?.data || response)
+    } catch (error) {
+      console.error('Error loading analytics:', error)
+      // Set fallback data
+      setAnalytics({
+        summary: {
+          totalSubscribedUsers: 0,
+          newSubscriptions: 0,
+          totalIncome: 0,
+          totalRefunds: 0,
+          netProfit: 0
+        }
+      })
     }
-    if (!editing.price || editing.price <= 0) {
-      showToast('Please enter a valid price', 'error')
-      return
-    }
-    
-    setSaving(true)
-    // Simulate API call delay
-    setTimeout(() => {
-      const id = editing.name.toLowerCase().replace(/\s+/g, '-')
-      setPlans((p) => [...p, { id, features: [], status: 'Active', ...editing }])
-      showToast('Plan created successfully')
-      setCreateOpen(false)
-      setSaving(false)
-    }, 500)
   }
 
-  function deletePlan(id) {
-    setDeleting(true)
-    // Simulate API call delay
-    setTimeout(() => {
-      setPlans((p) => p.filter((x) => x.id !== id))
-      showToast('Plan deleted successfully')
-      setDeleting(false)
-    }, 500)
+  // Load subscriptions data
+  async function loadSubscriptions() {
+    setLoading(true)
+    try {
+      const response = await adminService.getSubscriptions({ page, limit: 20 })
+      setSubscriptions(response?.data?.subscriptions || response?.subscriptions || [])
+      setTotalPages(response?.data?.totalPages || response?.totalPages || 1)
+    } catch (error) {
+      console.error('Error loading subscriptions:', error)
+      setSubscriptions([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load data on component mount and page change
+  useEffect(() => {
+    loadAnalytics()
+    loadSubscriptions()
+  }, [page])
+
+  async function openView(subscription) {
+    setSelectedSubscription(subscription)
+    setViewModalOpen(true)
+    setLoadingDetails(true)
+    setPlanDetails(null)
+    setUserDetails(null)
+
+    try {
+      // Load plan and user details in parallel
+      const [planResponse, userResponse] = await Promise.allSettled([
+        adminService.getPlanDetails(subscription.planId),
+        adminService.getUserDetails(subscription.userId)
+      ])
+
+      if (planResponse.status === 'fulfilled') {
+        setPlanDetails(planResponse.value?.data || planResponse.value)
+      }
+
+      if (userResponse.status === 'fulfilled') {
+        setUserDetails(userResponse.value?.data || userResponse.value)
+      }
+    } catch (error) {
+      console.error('Error loading subscription details:', error)
+    } finally {
+      setLoadingDetails(false)
+    }
   }
 
   return (
@@ -62,54 +108,120 @@ function Billing() {
         <h2 className="text-2xl font-semibold text-gray-900">Subscriptions & Payments</h2>
         <div className="inline-flex items-center gap-2">
           <button className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Stripe Dashboard</button>
-          <button onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"><Plus size={16} /> New plan</button>
         </div>
       </div>
 
       {/* Subscriptions overview */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card label="Active subscriptions" value="1,560" />
-        <Card label="MRR" value="£82,300" />
-        <Card label="Churn (30d)" value="2.1%" />
-        <Card label="Refunds (30d)" value="£1,120" />
+        <Card 
+          label="Total Subscribed Users" 
+          value={analytics?.summary?.totalSubscribedUsers?.toLocaleString() || '0'} 
+        />
+        <Card 
+          label="New Subscriptions (7d)" 
+          value={analytics?.summary?.newSubscriptions?.toLocaleString() || '0'} 
+        />
+        <Card 
+          label="Total Income" 
+          value={`£${analytics?.summary?.totalIncome?.toLocaleString() || '0'}`} 
+        />
+        <Card 
+          label="Net Profit" 
+          value={`£${analytics?.summary?.netProfit?.toLocaleString() || '0'}`} 
+        />
       </div>
 
-      {/* Plans management */}
+
+      {/* Subscriptions Table */}
       <div className="rounded-2xl border border-gray-200 bg-white">
-        <div className="px-5 py-3 text-base font-semibold text-gray-900">Plans</div>
+        <div className="px-5 py-3 text-base font-semibold text-gray-900">Recent Subscriptions</div>
         <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-sm text-gray-500">Loading subscriptions...</div>
+            </div>
+          ) : subscriptions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Download size={24} className="text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No subscriptions found</h3>
+              <p className="text-sm text-gray-500 text-center max-w-sm">
+                There are no subscriptions to display at the moment. Check back later or try refreshing the page.
+              </p>
+            </div>
+          ) : (
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Billing</th>
+                  <th className="px-4 py-3">User ID</th>
+                  <th className="px-4 py-3">Plan ID</th>
+                  <th className="px-4 py-3">Platform</th>
+                  <th className="px-4 py-3">Interval</th>
+                  <th className="px-4 py-3">Matching Count</th>
+                  <th className="px-4 py-3">Transaction Date</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {plans.map((p) => (
-                <tr key={p.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                  <td className="px-4 py-3 text-gray-800">£{p.price} {p.currency}</td>
-                  <td className="px-4 py-3 text-gray-800">{p.billing}</td>
+                {subscriptions.map((subscription) => (
+                  <tr key={subscription.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {subscription.userId?.substring(0, 8)}...
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {subscription.planId?.substring(0, 20)}...
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 capitalize">
+                      {subscription.platform || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 capitalize">
+                      {subscription.interval || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {subscription.matchingCount || 0}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {subscription.transactionDate ? 
+                        new Date(subscription.transactionDate).toLocaleDateString() : 
+                        'N/A'
+                      }
+                    </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${p.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{p.status}</span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        subscription.cancelledAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                      }`}>
+                        {subscription.cancelledAt ? 'Cancelled' : 'Active'}
+                      </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button 
-                      onClick={() => deletePlan(p.id)} 
-                      disabled={deleting}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => openView(subscription)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
                     >
-                      <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete'}
+                        <Eye size={14} /> View
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          )}
+        </div>
+        
+        {/* Table Info and Pagination */}
+        <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-gray-600">
+              Showing {subscriptions.length} subscription{subscriptions.length !== 1 ? 's' : ''} 
+              {totalPages > 1 && ` • Page ${page} of ${totalPages}`}
+            </div>
+            <div className="text-sm text-gray-500">
+              {loading && 'Loading...'}
+            </div>
+          </div>
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       </div>
 
@@ -130,44 +242,216 @@ function Billing() {
         </div>
       </div>
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Stripe plan (mock)">
-        <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-3">
+
+      {/* Subscription View Modal */}
+      <Modal open={viewModalOpen} onClose={() => setViewModalOpen(false)} title="Subscription Details">
+        {selectedSubscription && (
+          <div className="space-y-6">
+            {/* Status Header */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${
+                  selectedSubscription.cancelledAt ? 'bg-red-500' : 'bg-green-500'
+                }`}></div>
             <div>
-              <label className="mb-1 block text-gray-700">Name</label>
-              <input value={editing.name} onChange={(e) => setEditing((x) => ({ ...x, name: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <h3 className="font-semibold text-gray-900">
+                    {selectedSubscription.cancelledAt ? 'Cancelled Subscription' : 'Active Subscription'}
+                  </h3>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>
+                      {selectedSubscription.transactionDate ? 
+                        `Created on ${new Date(selectedSubscription.transactionDate).toLocaleDateString()}` : 
+                        'No creation date available'
+                      }
+                    </p>
+                    {loadingDetails ? (
+                      <p className="text-blue-600">Loading details...</p>
+                    ) : (
+                      <div className="flex items-center gap-4">
+                        {planDetails?.name && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Plan: {planDetails.name}
+                          </span>
+                        )}
+                        {userDetails?.name && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            User: {userDetails.name}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                selectedSubscription.cancelledAt 
+                  ? 'bg-red-100 text-red-800 border border-red-200' 
+                  : 'bg-green-100 text-green-800 border border-green-200'
+              }`}>
+                {selectedSubscription.cancelledAt ? 'Cancelled' : 'Active'}
+              </span>
+            </div>
+
+            {/* Main Details Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Subscription Info */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    Subscription Information
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Subscription ID</label>
+                      <div className="text-sm font-mono text-gray-900 bg-white px-3 py-2 rounded border break-all">
+                        {selectedSubscription.id}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Plan</label>
+                      <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border">
+                        {planDetails?.name || 'Loading...'}
+                        {planDetails?.price && (
+                          <span className="ml-2 text-green-600 font-semibold">
+                            £{planDetails.price}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 font-mono break-all">
+                        ID: {selectedSubscription.planId}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Customer ID</label>
+                      <div className="text-sm font-mono text-gray-900 bg-white px-3 py-2 rounded border break-all">
+                        {selectedSubscription.customerId || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle Column - User & Platform */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    User & Platform Details
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">User</label>
+                      <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border">
+                        {userDetails?.name || userDetails?.email || 'Loading...'}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 font-mono break-all">
+                        ID: {selectedSubscription.userId}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Platform</label>
+                      <div className="text-sm font-semibold text-gray-900 capitalize bg-white px-3 py-2 rounded border">
+                        {selectedSubscription.platform || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Payment Method</label>
+                      <div className="text-sm font-semibold text-gray-900 capitalize bg-white px-3 py-2 rounded border">
+                        {selectedSubscription.paymentMethod || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Billing Interval</label>
+                      <div className="text-sm font-semibold text-gray-900 capitalize bg-white px-3 py-2 rounded border">
+                        {selectedSubscription.interval || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Usage & Transaction */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    Usage Limits
+                  </h4>
+                  <div className="space-y-4">
+            <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Matching Count</label>
+                      <div className="text-xl font-bold text-gray-900 bg-white px-3 py-2 rounded border text-center">
+                        {selectedSubscription.matchingCount || 0}
+                      </div>
             </div>
             <div>
-              <label className="mb-1 block text-gray-700">Billing</label>
-              <select value={editing.billing} onChange={(e) => setEditing((x) => ({ ...x, billing: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option>Monthly</option>
-                <option>Yearly</option>
-              </select>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Monthly Limit</label>
+                      <div className="text-xl font-bold text-gray-900 bg-white px-3 py-2 rounded border text-center">
+                        {selectedSubscription.totalMonthlyCount || 0}
+                      </div>
             </div>
             <div>
-              <label className="mb-1 block text-gray-700">Price</label>
-              <input type="number" value={editing.price} onChange={(e) => setEditing((x) => ({ ...x, price: parseFloat(e.target.value) || 0 }))} className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Yearly Limit</label>
+                      <div className="text-xl font-bold text-gray-900 bg-white px-3 py-2 rounded border text-center">
+                        {selectedSubscription.totalYearlyCount || 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    Transaction Details
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Transaction Date</label>
+                      <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border">
+                        {selectedSubscription.transactionDate ? 
+                          new Date(selectedSubscription.transactionDate).toLocaleString() : 
+                          'N/A'
+                        }
+                      </div>
+                    </div>
+                    {selectedSubscription.cancelledAt && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Cancelled At</label>
+                        <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border">
+                          {new Date(selectedSubscription.cancelledAt).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                    {selectedSubscription.cancelReason && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Cancel Reason</label>
+                        <div className="text-sm text-gray-900 bg-red-50 px-3 py-2 rounded border border-red-200">
+                          {selectedSubscription.cancelReason}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-gray-700">Currency</label>
-              <select value={editing.currency} onChange={(e) => setEditing((x) => ({ ...x, currency: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option>GBP</option>
-                <option>USD</option>
-                <option>EUR</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <button onClick={() => setCreateOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 hover:bg-gray-50">Cancel</button>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
             <button 
-              onClick={createPlan} 
-              disabled={saving}
-              className="rounded-md bg-green-500 px-3 py-2 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Creating...' : 'Create'}
+                onClick={() => setViewModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Close
+              </button>
+              {!selectedSubscription.cancelledAt && (
+                <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                  Cancel Subscription
             </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </Modal>
     </div>
   )

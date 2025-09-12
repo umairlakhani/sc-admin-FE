@@ -40,12 +40,26 @@ function Properties() {
   const [totalPages, setTotalPages] = useState(1)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  
+  // Filter states
+  const [search, setSearch] = useState('')
+  const [userId, setUserId] = useState('')
+  const [offeringType, setOfferingType] = useState('')
+  const [propertyType, setPropertyType] = useState('')
+  const [listType, setListType] = useState('')
 
   // Load properties
   async function loadProperties() {
     setLoading(true)
     try {
-      const res = await adminService.listProperties({ page, limit: 6 })
+      const params = { page, limit: 6 }
+      if (search) params.search = search
+      if (userId) params.userId = userId
+      if (offeringType) params.offeringType = offeringType
+      if (propertyType) params.propertyType = propertyType
+      if (listType) params.listType = listType
+      
+      const res = await adminService.listProperties(params)
       setProperties(res?.properties || [])
       setTotalPages(res?.pagination?.totalPages || 1)
     } catch (err) {
@@ -119,7 +133,7 @@ function Properties() {
 
   useEffect(() => {
     loadProperties()
-  }, [page])
+  }, [page, search, userId, offeringType, propertyType, listType])
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -136,6 +150,58 @@ function Properties() {
       </div>
 
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
+        {/* Filters */}
+        <div className="p-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
+          <input 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            onKeyDown={(e) => e.key === 'Enter' && (setPage(1), loadProperties())} 
+            placeholder="Search by property title, type, or offering type..." 
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm" 
+          />
+          <input 
+            value={userId} 
+            onChange={(e) => setUserId(e.target.value)} 
+            placeholder="User ID" 
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm" 
+          />
+          <select 
+            value={offeringType} 
+            onChange={(e) => { setPage(1); setOfferingType(e.target.value) }} 
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Offering: any</option>
+            <option value="purchase">Purchase</option>
+            <option value="rental">Rental</option>
+          </select>
+          <select 
+            value={propertyType} 
+            onChange={(e) => { setPage(1); setPropertyType(e.target.value) }} 
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Property: any</option>
+            <option value="house/villa">House/Villa</option>
+            <option value="apartment">Apartment</option>
+            <option value="plot">Plot</option>
+            <option value="multifamily">Multifamily</option>
+          </select>
+          <select 
+            value={listType} 
+            onChange={(e) => { setPage(1); setListType(e.target.value) }} 
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">List: any</option>
+            <option value="offer">Offer</option>
+            <option value="demand">Demand</option>
+          </select>
+          <button 
+            onClick={() => { setPage(1); loadProperties() }} 
+            className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+          >
+            Apply
+          </button>
+        </div>
+        
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">

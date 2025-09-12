@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MoreVertical, Pencil, Eye, Trash2, Plus, Shield } from 'lucide-react'
+import { MoreVertical, Pencil, Eye, Trash2, Plus, Shield, ChevronDown, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { adminService } from '../lib/api'
 import { showToast } from '../lib/toast'
@@ -21,18 +21,82 @@ function Modal({ open, onClose, children, title }) {
   )
 }
 
+// Utility function to group permissions by module
+function groupPermissionsByModule(permissions) {
+  const grouped = {}
+  permissions.forEach(permission => {
+    const [module] = permission.key.split('.')
+    if (!grouped[module]) {
+      grouped[module] = []
+    }
+    grouped[module].push(permission)
+  })
+  return grouped
+}
+
+// Component to display role permissions
+function RolePermissionsDisplay({ role, onEditPermissions }) {
+  if (!role || !role.Permissions || role.Permissions.length === 0) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">No permissions assigned to this role</p>
+      </div>
+    )
+  }
+
+  const groupedPermissions = groupPermissionsByModule(role.Permissions)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-gray-900">Role: {role.name}</h4>
+        <button
+          onClick={() => onEditPermissions(role)}
+          className="text-xs text-green-600 hover:text-green-700 font-medium"
+        >
+          Edit Permissions
+        </button>
+      </div>
+      
+      <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+        {Object.entries(groupedPermissions).map(([module, modulePermissions]) => (
+          <div key={module} className="border-b border-gray-100 last:border-b-0">
+            <div className="p-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-900 capitalize">{module}</span>
+                <span className="text-sm text-gray-500">({modulePermissions.length} permissions)</span>
+              </div>
+            </div>
+            <div className="p-3 space-y-2">
+              {modulePermissions.map((permission) => (
+                <div key={permission.id} className="flex items-center justify-between bg-white p-2 rounded border">
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">{permission.key}</span>
+                    <p className="text-xs text-gray-500">{permission.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const initialStaff = []
 
 function Staff() {
   const navigate = useNavigate()
   const [staff, setStaff] = useState(initialStaff)
   const [roles, setRoles] = useState([])
-  const [modules, setModules] = useState([])
   const [menuOpenId, setMenuOpenId] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [rolePermissionsOpen, setRolePermissionsOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [currentRole, setCurrentRole] = useState(null)
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [totalPages, setTotalPages] = useState(1)
@@ -40,9 +104,6 @@ function Staff() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [savingPermissions, setSavingPermissions] = useState(false)
-  const [staffPermissions, setStaffPermissions] = useState([])
-  const [permissionStates, setPermissionStates] = useState({})
 
   const pageRows = staff
 
@@ -63,23 +124,14 @@ function Staff() {
     setEditOpen(true)
   }
 
-  async function openPermissions(staffMember) {
+  function openPermissions(staffMember) {
     setEditing(staffMember)
     setPermissionsOpen(true)
-    try {
-      const res = await adminService.getStaffPermissions(staffMember.id)
-      const permissions = res?.data || []
-      setStaffPermissions(permissions)
-      
-      // Initialize permission states
-      const states = {}
-      permissions.forEach(perm => {
-        states[perm.modulePermissionId] = perm.isGranted
-      })
-      setPermissionStates(states)
-    } catch (_) {
-      showToast('Failed to load permissions', 'error')
-    }
+  }
+
+  function openRolePermissions(role) {
+    setCurrentRole(role)
+    setRolePermissionsOpen(true)
   }
 
   async function saveStaff() {
@@ -144,59 +196,6 @@ function Staff() {
     }
   }
 
-  async function savePermissions() {
-    setSavingPermissions(true)
-    try {
-      const modulePermissions = Object.entries(permissionStates).map(([modulePermissionId, isGranted]) => ({
-        modulePermissionId,
-        isGranted
-      }))
-      
-      await adminService.updateStaffPermissions(editing.id, { modulePermissions })
-      showToast('Permissions updated successfully')
-      setPermissionsOpen(false)
-    } catch (err) {
-      showToast(err.message || 'Failed to update permissions', 'error')
-    } finally {
-      setSavingPermissions(false)
-    }
-  }
-
-  function togglePermission(modulePermissionId) {
-    setPermissionStates(prev => ({
-      ...prev,
-      [modulePermissionId]: !prev[modulePermissionId]
-    }))
-  }
-
-  function toggleAllModulePermissions(moduleId) {
-    const module = modules.find(m => m.id === moduleId)
-    if (!module?.permissions) return
-
-    const allChecked = module.permissions.every(permission => permissionStates[permission.id])
-    
-    const newStates = { ...permissionStates }
-    module.permissions.forEach(permission => {
-      newStates[permission.id] = !allChecked
-    })
-    
-    setPermissionStates(newStates)
-  }
-
-  function isModuleAllSelected(moduleId) {
-    const module = modules.find(m => m.id === moduleId)
-    if (!module?.permissions?.length) return false
-    
-    return module.permissions.every(permission => permissionStates[permission.id])
-  }
-
-  function isModulePartiallySelected(moduleId) {
-    const module = modules.find(m => m.id === moduleId)
-    if (!module?.permissions?.length) return false
-    
-    const selectedCount = module.permissions.filter(permission => permissionStates[permission.id]).length
-    return selectedCount > 0 && selectedCount < module.permissions.length
-  }
 
   async function loadStaff() {
     setLoading(true)
@@ -222,19 +221,9 @@ function Staff() {
     }
   }
 
-  async function loadModules() {
-    try {
-      const res = await adminService.listModules()
-      setModules(res?.data || [])
-    } catch (_) {
-      showToast('Failed to load modules', 'error')
-    }
-  }
-
   useEffect(() => { 
     loadStaff()
     loadRoles()
-    loadModules()
   }, [page])
 
   return (
@@ -391,60 +380,28 @@ function Staff() {
         </div>
       </Modal>
 
-      {/* Permissions Modal */}
-      <Modal open={permissionsOpen} onClose={() => setPermissionsOpen(false)} title="Staff Permissions">
+      {/* Staff Role Permissions Modal */}
+      <Modal open={permissionsOpen} onClose={() => setPermissionsOpen(false)} title="Staff Role Permissions">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 mb-4">
-            Manage permissions for <span className="font-medium">{editing?.name}</span>
-          </p>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {modules.map((module) => (
-              <div key={module.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900">{module.displayName}</h4>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="mr-2"
-                      checked={isModuleAllSelected(module.id)}
-                      ref={(input) => {
-                        if (input) {
-                          input.indeterminate = isModulePartiallySelected(module.id)
-                        }
-                      }}
-                      onChange={() => toggleAllModulePermissions(module.id)}
-                    />
-                    <span className="text-sm text-gray-600 font-medium">Select All</span>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {module.permissions?.map((permission) => (
-                    <label key={permission.id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="mr-2"
-                        checked={permissionStates[permission.id] || false}
-                        onChange={() => togglePermission(permission.id)}
-                      />
-                      <span className="text-sm text-gray-700">{permission.displayName}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-900">Staff: {editing?.name}</h3>
+            <p className="text-sm text-gray-500 mt-1">Email: {editing?.email}</p>
+            <p className="text-sm text-gray-500">Role: {editing?.role}</p>
           </div>
+          
+          {editing?.roleId && (
+            <RolePermissionsDisplay 
+              role={roles.find(r => r.id === editing.roleId)} 
+              onEditPermissions={openRolePermissions}
+            />
+          )}
+          
           <div className="flex items-center justify-end gap-2">
             <button 
               onClick={() => setPermissionsOpen(false)} 
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
             >
-              Cancel
-            </button>
-            <button 
-              onClick={savePermissions} 
-              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"
-            >
-              Save Permissions
+              Close
             </button>
           </div>
         </div>
@@ -472,6 +429,43 @@ function Staff() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Role Permissions Management Modal */}
+      <Modal open={rolePermissionsOpen} onClose={() => setRolePermissionsOpen(false)} title="Edit Role Permissions">
+        {currentRole && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-900">Role: {currentRole.name}</h3>
+              <p className="text-sm text-gray-500 mt-1">{currentRole.description}</p>
+            </div>
+            
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-600 mb-4">
+                To edit role permissions, please go to the Roles & Permissions page.
+              </p>
+              <button
+                onClick={() => {
+                  setRolePermissionsOpen(false)
+                  navigate('/roles-permissions')
+                }}
+                className="inline-flex items-center gap-2 rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"
+              >
+                <Shield size={16} />
+                Go to Roles & Permissions
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-end gap-2">
+              <button 
+                onClick={() => setRolePermissionsOpen(false)} 
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

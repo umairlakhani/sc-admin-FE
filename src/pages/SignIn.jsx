@@ -64,7 +64,7 @@ function SignIn() {
       try {
         if (userType === 'superAdmin') {
           console.log('Attempting Super Admin login...')
-          res = await authService.superAdminLogin({ email, password })
+          res = await authService.staffLogin({ email, password })
           console.log('Super Admin login successful:', res)
         } else {
           console.log('Attempting Staff login...')
@@ -81,7 +81,7 @@ function SignIn() {
             finalUserType = 'staff'
           } else {
             console.log('Fallback: Trying Super Admin login...')
-            res = await authService.superAdminLogin({ email, password })
+            res = await authService.staffLogin({ email, password })
             finalUserType = 'superAdmin'
           }
         } catch (secondError) {
@@ -98,10 +98,13 @@ function SignIn() {
       localStorage.setItem('auth', 'true')
       localStorage.setItem('user_type', finalUserType)
       
-      // Store role and permissions if available
+      // Store user data, role and permissions if available
       if (res?.data) {
-        localStorage.setItem('user_role', res.data.role?.name || (finalUserType === 'superAdmin' ? 'Super Admin' : 'Staff'))
-        localStorage.setItem('user_permissions', JSON.stringify(res.data.permissions || ['*']))
+        localStorage.setItem('user_data', JSON.stringify(res.data))
+        localStorage.setItem('user_role', JSON.stringify(res.data.role))
+        localStorage.setItem('user_permissions', JSON.stringify(res.data.permissions || []))
+        localStorage.setItem('user_name', res.data.name || '')
+        localStorage.setItem('user_email', res.data.email || '')
       }
       
       window.location.href = '/dashboard'

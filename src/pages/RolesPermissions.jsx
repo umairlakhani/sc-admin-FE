@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MoreVertical, Eye, Edit, Trash2, Plus, Shield, Settings } from 'lucide-react'
+import { MoreVertical, Eye, Edit, Trash2, Plus, Shield, Settings, ChevronDown, ChevronRight } from 'lucide-react'
 import { adminService } from '../lib/api'
 import { showToast } from '../lib/toast'
 import Pagination from '../components/Pagination'
@@ -20,28 +20,150 @@ function Modal({ open, onClose, children, title }) {
   )
 }
 
+// Utility function to group permissions by module
+function groupPermissionsByModule(permissions) {
+  const grouped = {}
+  permissions.forEach(permission => {
+    const [module] = permission.key.split('.')
+    if (!grouped[module]) {
+      grouped[module] = []
+    }
+    grouped[module].push(permission)
+  })
+  return grouped
+}
+
+// Accordion component for permissions
+function PermissionsAccordion({ permissions, selectedPermissions, onTogglePermission, loading }) {
+  const [expandedModules, setExpandedModules] = useState({})
+  const groupedPermissions = groupPermissionsByModule(permissions)
+
+  const toggleModule = (module) => {
+    setExpandedModules(prev => ({
+      ...prev,
+      [module]: !prev[module]
+    }))
+  }
+
+  const toggleAllInModule = (modulePermissions, module) => {
+    const allSelected = modulePermissions.every(p => selectedPermissions.includes(p.id))
+    if (allSelected) {
+      // Unselect all in this module
+      modulePermissions.forEach(p => {
+        if (selectedPermissions.includes(p.id)) {
+          onTogglePermission(p.id)
+        }
+      })
+    } else {
+      // Select all in this module
+      modulePermissions.forEach(p => {
+        if (!selectedPermissions.includes(p.id)) {
+          onTogglePermission(p.id)
+        }
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
+        <p className="text-sm text-gray-600">Loading permissions...</p>
+      </div>
+    )
+  }
+
+  if (permissions.length === 0) {
+    return <p className="text-sm text-gray-500 text-center py-4">No permissions available</p>
+  }
+
+  return (
+    <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+      {Object.entries(groupedPermissions).map(([module, modulePermissions]) => {
+        const isExpanded = expandedModules[module]
+        const allSelected = modulePermissions.every(p => selectedPermissions.includes(p.id))
+        const someSelected = modulePermissions.some(p => selectedPermissions.includes(p.id))
+        
+        return (
+          <div key={module} className="border-b border-gray-100 last:border-b-0">
+            <button
+              onClick={() => toggleModule(module)}
+              className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+            >
+              <div className="flex items-center space-x-3">
+                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <span className="font-medium text-gray-900 capitalize">{module}</span>
+                <span className="text-sm text-gray-500">({modulePermissions.length} permissions)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={input => {
+                    if (input) input.indeterminate = someSelected && !allSelected
+                  }}
+                  onChange={() => toggleAllInModule(modulePermissions, module)}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </button>
+            
+            {isExpanded && (
+              <div className="px-3 pb-3 space-y-2 bg-gray-50">
+                {modulePermissions.map((permission) => (
+                  <label key={permission.id} className="flex items-center space-x-3 cursor-pointer hover:bg-white p-2 rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedPermissions.includes(permission.id)}
+                      onChange={() => onTogglePermission(permission.id)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900">{permission.key}</div>
+                      <div className="text-xs text-gray-500">{permission.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function RolesPermissions() {
   const [activeTab, setActiveTab] = useState('roles')
   const [roles, setRoles] = useState([])
   const [modules, setModules] = useState([])
+  const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
   const [menuOpen, setMenuOpen] = useState('')
   
+  // Module pagination state
+  const [modulePage, setModulePage] = useState(1)
+  const [moduleTotalPages, setModuleTotalPages] = useState(1)
+  const [moduleLimit] = useState(6)
+  
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [permissionsModalOpen, setPermissionsModalOpen] = useState(false)
   const [current, setCurrent] = useState(null)
   
   // Form states
   const [roleForm, setRoleForm] = useState({
     name: '',
     description: '',
-    scope: 'staff'
+    scope: 'staff',
+    selectedPermissions: []
   })
   
   const [moduleForm, setModuleForm] = useState({
@@ -55,6 +177,7 @@ function RolesPermissions() {
   // Loading states
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [loadingPermissions, setLoadingPermissions] = useState(false)
 
   // Load roles
   async function loadRoles() {
@@ -62,7 +185,7 @@ function RolesPermissions() {
     try {
       const params = {
         page,
-        limit: 10,
+        limit: 6,
         ...(searchTerm && { search: searchTerm })
       }
       const res = await adminService.listRoles(params)
@@ -79,8 +202,12 @@ function RolesPermissions() {
   async function loadModules() {
     setLoading(true)
     try {
-      const res = await adminService.listModules()
+      const res = await adminService.listModules({
+        page: modulePage,
+        limit: moduleLimit
+      })
       setModules(res?.data || [])
+      setModuleTotalPages(res?.totalPages || 1)
     } catch (err) {
       showToast(err.message || 'Failed to load modules', 'error')
     } finally {
@@ -88,9 +215,23 @@ function RolesPermissions() {
     }
   }
 
+  // Load permissions
+  async function loadPermissions() {
+    setLoadingPermissions(true)
+    try {
+      const res = await adminService.listPermissions()
+      setPermissions(res?.data || [])
+    } catch (err) {
+      showToast(err.message || 'Failed to load permissions', 'error')
+    } finally {
+      setLoadingPermissions(false)
+    }
+  }
+
   function openCreate() {
     if (activeTab === 'roles') {
-      setRoleForm({ name: '', description: '', scope: 'staff' })
+      setRoleForm({ name: '', description: '', scope: 'staff', selectedPermissions: [] })
+      loadPermissions() // Load permissions when creating a role
     } else {
       setModuleForm({ name: '', displayName: '', description: '', order: 1, createDefaultPermissions: true })
     }
@@ -103,7 +244,8 @@ function RolesPermissions() {
       setRoleForm({
         name: item.name,
         description: item.description,
-        scope: item.scope
+        scope: item.scope,
+        selectedPermissions: item.Permissions ? item.Permissions.map(p => p.id) : []
       })
     } else {
       setModuleForm({
@@ -127,6 +269,45 @@ function RolesPermissions() {
     setDeleteModalOpen(true)
   }
 
+  function openPermissionsModal(role) {
+    setCurrent(role)
+    setRoleForm(prev => ({
+      ...prev,
+      selectedPermissions: role.Permissions?.map(p => p.id) || []
+    }))
+    setPermissionsModalOpen(true)
+    loadPermissions()
+  }
+
+  function togglePermission(permissionId) {
+    setRoleForm(prev => ({
+      ...prev,
+      selectedPermissions: prev.selectedPermissions.includes(permissionId)
+        ? prev.selectedPermissions.filter(id => id !== permissionId)
+        : [...prev.selectedPermissions, permissionId]
+    }))
+  }
+
+  async function updateRolePermissions() {
+    if (!current) return
+    
+    setSaving(true)
+    try {
+      await adminService.assignRolePermissions(current.id, {
+        permissionIds: roleForm.selectedPermissions
+      })
+      showToast('Role permissions updated successfully')
+      setPermissionsModalOpen(false)
+      setCurrent(null)
+      setRoleForm(prev => ({ ...prev, selectedPermissions: [] }))
+      loadRoles()
+    } catch (err) {
+      showToast(err.message || 'Failed to update role permissions', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function createItem() {
     if (activeTab === 'roles') {
       if (!roleForm.name.trim()) {
@@ -136,10 +317,24 @@ function RolesPermissions() {
       
       setSaving(true)
       try {
-        await adminService.createRole(roleForm)
+        // First create the role
+        const roleData = {
+          name: roleForm.name,
+          description: roleForm.description,
+          scope: roleForm.scope
+        }
+        const newRole = await adminService.createRole(roleData)
+        
+        // Then assign permissions if any are selected
+        if (roleForm.selectedPermissions.length > 0) {
+          await adminService.assignRolePermissions(newRole.data.id, {
+            permissionIds: roleForm.selectedPermissions
+          })
+        }
+        
         showToast('Role created successfully')
         setCreateModalOpen(false)
-        setRoleForm({ name: '', description: '', scope: 'staff' })
+        setRoleForm({ name: '', description: '', scope: 'staff', selectedPermissions: [] })
         loadRoles()
       } catch (err) {
         showToast(err.message || 'Failed to create role', 'error')
@@ -176,7 +371,20 @@ function RolesPermissions() {
       
       setSaving(true)
       try {
-        await adminService.updateRole(current.id, roleForm)
+        // Update role basic info
+        await adminService.updateRole(current.id, {
+          name: roleForm.name,
+          description: roleForm.description,
+          scope: roleForm.scope
+        })
+        
+        // Update role permissions if they have changed
+        if (roleForm.selectedPermissions) {
+          await adminService.assignRolePermissions(current.id, {
+            permissionIds: roleForm.selectedPermissions
+          })
+        }
+        
         showToast('Role updated successfully')
         setEditModalOpen(false)
         setCurrent(null)
@@ -234,7 +442,7 @@ function RolesPermissions() {
     } else {
       loadModules()
     }
-  }, [activeTab, page, searchTerm])
+  }, [activeTab, page, searchTerm, modulePage])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -267,7 +475,11 @@ function RolesPermissions() {
       {/* Tabs */}
       <div className="flex space-x-1 rounded-lg bg-gray-100 p-1">
         <button
-          onClick={() => setActiveTab('roles')}
+          onClick={() => {
+            setActiveTab('roles')
+            setPage(1)
+            setModulePage(1)
+          }}
           className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'roles'
               ? 'bg-white text-gray-900 shadow-sm'
@@ -280,7 +492,11 @@ function RolesPermissions() {
           </div>
         </button>
         <button
-          onClick={() => setActiveTab('modules')}
+          onClick={() => {
+            setActiveTab('modules')
+            setPage(1)
+            setModulePage(1)
+          }}
           className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'modules'
               ? 'bg-white text-gray-900 shadow-sm'
@@ -325,6 +541,7 @@ function RolesPermissions() {
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Description</th>
                     <th className="px-4 py-3">Scope</th>
+                    <th className="px-4 py-3">Permissions</th>
                     <th className="px-4 py-3">Created</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -344,6 +561,11 @@ function RolesPermissions() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-800">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700">
+                          {role.Permissions?.length || 0} permissions
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-800">
                         {role.createdAt ? new Date(role.createdAt).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-4 py-3">
@@ -355,12 +577,18 @@ function RolesPermissions() {
                             <MoreVertical size={16} />
                           </button>
                           {menuOpen === role.id && (
-                            <div className="absolute right-0 z-50 mt-2 w-40 rounded-md border border-gray-200 bg-white shadow-lg">
+                            <div className="absolute right-0 z-50 mt-2 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
                               <button 
                                 onClick={() => { setMenuOpen(''); openView(role) }} 
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
                               >
                                 <Eye size={14} /> View
+                              </button>
+                              <button 
+                                onClick={() => { setMenuOpen(''); openPermissionsModal(role) }} 
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              >
+                                <Shield size={14} /> Manage Permissions
                               </button>
                               <button 
                                 onClick={() => { setMenuOpen(''); openEdit(role) }} 
@@ -472,6 +700,11 @@ function RolesPermissions() {
         <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       )}
 
+      {/* Pagination for Modules */}
+      {activeTab === 'modules' && (
+        <Pagination page={modulePage} totalPages={moduleTotalPages} onChange={setModulePage} />
+      )}
+
       {/* Create Modal */}
       <Modal open={createModalOpen} onClose={() => setCreateModalOpen(false)} title={activeTab === 'roles' ? 'Create Role' : 'Create Module'}>
         <div className="space-y-4">
@@ -507,6 +740,22 @@ function RolesPermissions() {
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Permissions</label>
+                  {roleForm.selectedPermissions.length > 0 && (
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                      {roleForm.selectedPermissions.length} selected
+                    </span>
+                  )}
+                </div>
+                <PermissionsAccordion
+                  permissions={permissions}
+                  selectedPermissions={roleForm.selectedPermissions}
+                  onTogglePermission={togglePermission}
+                  loading={loadingPermissions}
+                />
               </div>
             </>
           ) : (
@@ -619,6 +868,26 @@ function RolesPermissions() {
                   <option value="admin">Admin</option>
                 </select>
               </div>
+              
+              {/* Permissions Section for Edit Role */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Permissions</label>
+                  {roleForm.selectedPermissions && roleForm.selectedPermissions.length > 0 && (
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                      {roleForm.selectedPermissions.length} selected
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                  <PermissionsAccordion
+                    permissions={permissions}
+                    selectedPermissions={roleForm.selectedPermissions || []}
+                    onTogglePermission={togglePermission}
+                    loading={loadingPermissions}
+                  />
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -707,6 +976,35 @@ function RolesPermissions() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <p className="text-sm text-gray-900">{current.description}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                  {current.Permissions && current.Permissions.length > 0 ? (
+                    <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                      {Object.entries(groupPermissionsByModule(current.Permissions)).map(([module, modulePermissions]) => (
+                        <div key={module} className="border-b border-gray-100 last:border-b-0">
+                          <div className="p-3 bg-gray-50 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-900 capitalize">{module}</span>
+                              <span className="text-sm text-gray-500">({modulePermissions.length} permissions)</span>
+                            </div>
+                          </div>
+                          <div className="p-3 space-y-2">
+                            {modulePermissions.map((permission) => (
+                              <div key={permission.id} className="flex items-center justify-between bg-white p-2 rounded border">
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">{permission.key}</span>
+                                  <p className="text-xs text-gray-500">{permission.description}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No permissions assigned</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -828,6 +1126,51 @@ function RolesPermissions() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Permissions Management Modal */}
+      <Modal open={permissionsModalOpen} onClose={() => setPermissionsModalOpen(false)} title="Manage Role Permissions">
+        {current && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-900">Role: {current.name}</h3>
+              <p className="text-sm text-gray-500 mt-1">{current.description}</p>
+            </div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Select Permissions</label>
+                {roleForm.selectedPermissions.length > 0 && (
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                    {roleForm.selectedPermissions.length} selected
+                  </span>
+                )}
+              </div>
+              <PermissionsAccordion
+                permissions={permissions}
+                selectedPermissions={roleForm.selectedPermissions}
+                onTogglePermission={togglePermission}
+                loading={loadingPermissions}
+              />
+            </div>
+            
+            <div className="flex items-center justify-end gap-2">
+              <button 
+                onClick={() => setPermissionsModalOpen(false)} 
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={updateRolePermissions} 
+                disabled={saving}
+                className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Updating...' : 'Update Permissions'}
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

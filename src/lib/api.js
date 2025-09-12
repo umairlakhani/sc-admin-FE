@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
-// const baseURL = "http://localhost:3000"
+// const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+const baseURL = "http://localhost:3000"
 export const api = axios.create({ baseURL, withCredentials: false })
 
 // Attach Authorization header if token is present
@@ -69,7 +69,8 @@ export const authService = {
 }
 
 export const adminService = {
-  getDashboardStats: () => api.get('/api/admin/dashboard/stats').then((r) => r.data),
+  getDashboardStats: () => api.get('/api/admin/dashboard').then((r) => r.data),
+  getDashboardGrowthStats: () => api.get('/api/admin/dashboard/stats').then((r) => r.data),
   // Subscriptions (plans)
   listPlans: (params) => api.get('/api/admin/subscriptions', { params }).then((r) => r.data),
   createPlan: (payload) => api.post('/api/admin/subscriptions', payload).then((r) => r.data),
@@ -96,9 +97,6 @@ export const adminService = {
   getStaff: (staffId) => api.get(`/api/admin/staff/${staffId}`).then((r) => r.data),
   updateStaff: (staffId, payload) => api.put(`/api/admin/staff/${staffId}`, payload).then((r) => r.data),
   deleteStaff: (staffId) => api.delete(`/api/admin/staff/${staffId}`).then((r) => r.data),
-  // Staff Permissions
-  getStaffPermissions: (staffId) => api.get(`/api/admin/modules/staff/${staffId}/permissions`).then((r) => r.data),
-  updateStaffPermissions: (staffId, payload) => api.put(`/api/admin/modules/staff/${staffId}/permissions`, payload).then((r) => r.data),
   // Roles
   listRoles: (params) => api.get('/api/admin/rbac/roles', { params }).then((r) => r.data),
   // Modules and Permissions
@@ -125,6 +123,11 @@ export const adminService = {
   getRole: (id) => api.get(`/api/admin/rbac/roles/${id}`).then((r) => r.data),
   updateRole: (id, payload) => api.put(`/api/admin/rbac/roles/${id}`, payload).then((r) => r.data),
   deleteRole: (id) => api.delete(`/api/admin/rbac/roles/${id}`).then((r) => r.data),
+  // Permissions Management
+  listPermissions: () => api.get('/api/admin/rbac/permissions').then((r) => r.data),
+  createPermission: (payload) => api.post('/api/admin/rbac/permissions', payload).then((r) => r.data),
+  // Role Permissions Management
+  assignRolePermissions: (roleId, payload) => api.put(`/api/admin/rbac/roles/${roleId}/permissions`, payload).then((r) => r.data),
   // Modules Management
   listModules: () => api.get('/api/admin/modules').then((r) => r.data),
   createModule: (payload) => api.post('/api/admin/modules', payload).then((r) => r.data),
@@ -138,6 +141,13 @@ export const adminService = {
   updateProperty: (id, payload) => api.put(`/api/admin/properties/${id}`, payload).then((r) => r.data),
   deleteProperty: (id) => api.delete(`/api/admin/properties/${id}`).then((r) => r.data),
   togglePropertyDelete: (id) => api.patch(`/api/admin/properties/${id}/toggle-delete`).then((r) => r.data),
+  // Subscription Analytics
+  getSubscriptionAnalytics: (params) => api.get('/api/admin/subscription-analytics', { params }).then((r) => r.data),
+  getSubscriptions: (params) => api.get('/api/admin/subscription-analytics/subscriptions', { params }).then((r) => r.data),
+  // Get plan details by ID
+  getPlanDetails: (planId) => api.get(`/api/admin/subscriptions/${planId}`).then((r) => r.data),
+  // Get user details by ID
+  getUserDetails: (userId) => api.get(`/api/admin/users/${userId}`).then((r) => r.data),
 }
 
 
