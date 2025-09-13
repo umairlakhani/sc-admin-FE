@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
-//const baseURL = "http://localhost:3000"
+//const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+const baseURL = "http://localhost:3000"
 export const api = axios.create({ baseURL, withCredentials: false })
 
 // Attach Authorization header if token is present
@@ -148,6 +148,18 @@ export const adminService = {
   getPlanDetails: (planId) => api.get(`/api/admin/subscriptions/${planId}`).then((r) => r.data),
   // Get user details by ID
   getUserDetails: (userId) => api.get(`/api/admin/users/${userId}`).then((r) => r.data),
+  // Matching Rules Management
+  listMatchingRules: (params) => api.get('/api/admin/matching-rules', { params }).then((r) => r.data),
+  createMatchingRule: (payload) => api.post('/api/admin/matching-rules', payload).then((r) => r.data),
+  getMatchingRule: (id, params) => api.get(`/api/admin/matching-rules/${id}`, { params }).then((r) => r.data),
+  updateMatchingRule: (id, payload) => api.put(`/api/admin/matching-rules/${id}`, payload).then((r) => r.data),
+  deleteMatchingRule: (id) => api.delete(`/api/admin/matching-rules/${id}`).then((r) => r.data),
+  // Matching Rule Options
+  getRuleOptions: (ruleId, params) => api.get(`/api/admin/matching-rules/${ruleId}/options`, { params }).then((r) => r.data),
+  addRuleOption: (ruleId, payload) => api.post(`/api/admin/matching-rules/${ruleId}/options`, payload).then((r) => r.data),
+  updateRuleOption: (optionId, payload) => api.put(`/api/admin/matching-rules/options/${optionId}`, payload).then((r) => r.data),
+  deleteRuleOption: (optionId) => api.delete(`/api/admin/matching-rules/options/${optionId}`).then((r) => r.data),
+  bulkUpdateRuleOptions: (ruleId, payload) => api.put(`/api/admin/matching-rules/${ruleId}/options/bulk`, payload).then((r) => r.data),
 }
 
 

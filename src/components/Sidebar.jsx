@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent, CreditCard, UserCheck, Shield } from 'lucide-react'
+import { LayoutDashboard, Users, Bell, Building2, LifeBuoy, BadgePercent, CreditCard, UserCheck, Shield, Settings } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { getFilteredNavigationItems } from '../lib/permissions'
 
@@ -9,6 +9,7 @@ const items = [
   { to: '/staff', label: 'Staff', icon: UserCheck, permission: 'staff.read' },
   { to: '/roles-permissions', label: 'Roles & Permissions', icon: Shield, permission: 'roles_permissions.read' },
   { to: '/properties', label: 'Manage Properties', icon: Building2, permission: 'properties.read' },
+  { to: '/matching-rules', label: 'Matching Rules', icon: Settings, permission: 'properties.read' },
   { to: '/billing', label: 'Subscriptions & Payments', icon: CreditCard, permission: 'subscriptions.read' },
   { to: '/support', label: 'Support Requests', icon: LifeBuoy, permission: 'support.read' },
   { to: '/notifications', label: 'Manage Notifications', icon: Bell, permission: 'notifications.read' },

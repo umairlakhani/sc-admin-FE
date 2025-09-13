@@ -140,9 +140,9 @@ function Properties() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">Manage Properties</h2>
         <div className="inline-flex items-center gap-2">
-          <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
+          {/* <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
             <Settings size={16} /> Matching rules
-          </button>
+          </button> */}
           <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
             <Plus size={16} /> New property
           </button>

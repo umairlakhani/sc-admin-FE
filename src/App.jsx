@@ -15,6 +15,8 @@ import Staff from './pages/Staff'
 import StaffView from './pages/StaffView'
 import RolesPermissions from './pages/RolesPermissions'
 import RoleView from './pages/RoleView'
+import MatchingRules from './pages/MatchingRules'
+import MatchingRuleView from './pages/MatchingRuleView'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function PrivateRoute({ children }) {
@@ -99,6 +101,16 @@ function App() {
           <Route path="roles-permissions" element={
             <ProtectedRoute requiredPermission="roles_permissions.read">
               <RolesPermissions />
+            </ProtectedRoute>
+          } />
+          <Route path="matching-rules" element={
+            <ProtectedRoute requiredPermission="properties.read">
+              <MatchingRules />
+            </ProtectedRoute>
+          } />
+          <Route path="matching-rules/:id" element={
+            <ProtectedRoute requiredPermission="properties.read">
+              <MatchingRuleView />
             </ProtectedRoute>
           } />
         </Route>
