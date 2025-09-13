@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { plansData } from '../data'
-import { Plus, Trash2, Download, Eye, MoreVertical } from 'lucide-react'
+import { Plus, Trash2, Download, Eye, MoreVertical, ExternalLink } from 'lucide-react'
 import { adminService } from '../lib/api'
 import Pagination from '../components/Pagination'
 
@@ -32,6 +32,20 @@ function Billing() {
   const [planDetails, setPlanDetails] = useState(null)
   const [userDetails, setUserDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+
+  // Stripe invoices state
+  const [invoices, setInvoices] = useState([])
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [invoicePage, setInvoicePage] = useState(1)
+  const [invoiceTotalPages, setInvoiceTotalPages] = useState(1)
+  const [invoiceFilters, setInvoiceFilters] = useState({
+    status: '',
+    currency: '',
+    period: '7d'
+  })
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('subscriptions')
 
   // Load analytics data
   async function loadAnalytics() {
@@ -68,11 +82,40 @@ function Billing() {
     }
   }
 
+  // Load Stripe invoices data
+  async function loadInvoices() {
+    setInvoiceLoading(true)
+    try {
+      const params = {
+        page: invoicePage,
+        // limit: 6,
+        period: invoiceFilters.period,
+        ...(invoiceFilters.status && { status: invoiceFilters.status }),
+        ...(invoiceFilters.currency && { currency: invoiceFilters.currency })
+      }
+      const response = await adminService.getStripeInvoices(params)
+      setInvoices(response?.data?.invoices || response?.invoices || [])
+      setInvoiceTotalPages(response?.data?.totalPages || response?.totalPages || 1)
+    } catch (error) {
+      console.error('Error loading invoices:', error)
+      setInvoices([])
+    } finally {
+      setInvoiceLoading(false)
+    }
+  }
+
   // Load data on component mount and page change
   useEffect(() => {
     loadAnalytics()
     loadSubscriptions()
   }, [page])
+
+  // Load invoices when invoices tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'invoices') {
+      loadInvoices()
+    }
+  }, [activeTab, invoicePage, invoiceFilters])
 
   async function openView(subscription) {
     setSelectedSubscription(subscription)
@@ -132,96 +175,294 @@ function Billing() {
       </div>
 
 
-      {/* Subscriptions Table */}
+      {/* Tabs */}
       <div className="rounded-2xl border border-gray-200 bg-white">
-        <div className="px-5 py-3 text-base font-semibold text-gray-900">Recent Subscriptions</div>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-sm text-gray-500">Loading subscriptions...</div>
-            </div>
-          ) : subscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Download size={24} className="text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No subscriptions found</h3>
-              <p className="text-sm text-gray-500 text-center max-w-sm">
-                There are no subscriptions to display at the moment. Check back later or try refreshing the page.
-              </p>
-            </div>
-          ) : (
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500">
-                  <th className="px-4 py-3">User ID</th>
-                  <th className="px-4 py-3">Plan ID</th>
-                  <th className="px-4 py-3">Platform</th>
-                  <th className="px-4 py-3">Interval</th>
-                  <th className="px-4 py-3">Matching Count</th>
-                  <th className="px-4 py-3">Transaction Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-                {subscriptions.map((subscription) => (
-                  <tr key={subscription.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {subscription.userId?.substring(0, 8)}...
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {subscription.planId?.substring(0, 20)}...
-                    </td>
-                    <td className="px-4 py-3 text-gray-800 capitalize">
-                      {subscription.platform || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800 capitalize">
-                      {subscription.interval || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {subscription.matchingCount || 0}
-                    </td>
-                    <td className="px-4 py-3 text-gray-800">
-                      {subscription.transactionDate ? 
-                        new Date(subscription.transactionDate).toLocaleDateString() : 
-                        'N/A'
-                      }
-                    </td>
-                  <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        subscription.cancelledAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                      }`}>
-                        {subscription.cancelledAt ? 'Cancelled' : 'Active'}
-                      </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button 
-                        onClick={() => openView(subscription)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
-                    >
-                        <Eye size={14} /> View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          )}
+        {/* Tab Headers */}
+        <div className="px-5 pt-5">
+          <nav className="flex space-x-2" aria-label="Tabs">
+            <button
+              onClick={() => setActiveTab('subscriptions')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg font-medium text-sm transition-all ${
+                activeTab === 'subscriptions'
+                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200 border-b-0 relative z-10'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Subscriptions
+            </button>
+            <button
+              onClick={() => setActiveTab('invoices')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg font-medium text-sm transition-all ${
+                activeTab === 'invoices'
+                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200 border-b-0 relative z-10'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Invoices
+            </button>
+          </nav>
         </div>
-        
-        {/* Table Info and Pagination */}
-        <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-gray-600">
-              Showing {subscriptions.length} subscription{subscriptions.length !== 1 ? 's' : ''} 
-              {totalPages > 1 && ` • Page ${page} of ${totalPages}`}
+
+        {/* Tab Content */}
+        <div className="border-t border-gray-200 bg-white">
+          {activeTab === 'subscriptions' && (
+            <div>
+              <div className="px-5 py-3 text-base font-semibold text-gray-900">Recent Subscriptions</div>
+              <div className="overflow-x-auto">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-sm text-gray-500">Loading subscriptions...</div>
+                  </div>
+                ) : subscriptions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <Download size={24} className="text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No subscriptions found</h3>
+                    <p className="text-sm text-gray-500 text-center max-w-sm">
+                      There are no subscriptions to display at the moment. Check back later or try refreshing the page.
+                    </p>
+                  </div>
+                ) : (
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500">
+                        <th className="px-4 py-3">User ID</th>
+                        <th className="px-4 py-3">Plan ID</th>
+                        <th className="px-4 py-3">Platform</th>
+                        <th className="px-4 py-3">Interval</th>
+                        <th className="px-4 py-3">Matching Count</th>
+                        <th className="px-4 py-3">Transaction Date</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                      {subscriptions.map((subscription) => (
+                        <tr key={subscription.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {subscription.userId?.substring(0, 8)}...
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {subscription.planId?.substring(0, 20)}...
+                          </td>
+                          <td className="px-4 py-3 text-gray-800 capitalize">
+                            {subscription.platform || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800 capitalize">
+                            {subscription.interval || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {subscription.matchingCount || 0}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {subscription.transactionDate ? 
+                              new Date(subscription.transactionDate).toLocaleDateString() : 
+                              'N/A'
+                            }
+                          </td>
+                        <td className="px-4 py-3">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              subscription.cancelledAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                            }`}>
+                              {subscription.cancelledAt ? 'Cancelled' : 'Active'}
+                            </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button 
+                              onClick={() => openView(subscription)}
+                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                          >
+                              <Eye size={14} /> View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                )}
+              </div>
+              
+              {/* Table Info and Pagination */}
+              <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-600">
+                    Showing {subscriptions.length} subscription{subscriptions.length !== 1 ? 's' : ''} 
+                    {totalPages > 1 && ` • Page ${page} of ${totalPages}`}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {loading && 'Loading...'}
+                  </div>
+                </div>
+                <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+              </div>
             </div>
-            <div className="text-sm text-gray-500">
-              {loading && 'Loading...'}
+          )}
+
+          {activeTab === 'invoices' && (
+            <div>
+              <div className="px-5 py-3 text-base font-semibold text-gray-900">Stripe Invoices</div>
+              
+              {/* Filters */}
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Status:</label>
+                    <select
+                      value={invoiceFilters.status}
+                      onChange={(e) => setInvoiceFilters(prev => ({ ...prev, status: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">All Status</option>
+                      <option value="paid">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Currency:</label>
+                    <select
+                      value={invoiceFilters.currency}
+                      onChange={(e) => setInvoiceFilters(prev => ({ ...prev, currency: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">All Currencies</option>
+                      <option value="CHF">CHF</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Period:</label>
+                    <select
+                      value={invoiceFilters.period}
+                      onChange={(e) => setInvoiceFilters(prev => ({ ...prev, period: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="7d">Last 7 days</option>
+                      <option value="30d">Last 30 days</option>
+                      <option value="90d">Last 90 days</option>
+                      <option value="1y">Last year</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                {invoiceLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-sm text-gray-500">Loading invoices...</div>
+                  </div>
+                ) : invoices.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <Download size={24} className="text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices found</h3>
+                    <p className="text-sm text-gray-500 text-center max-w-sm">
+                      There are no invoices to display for the selected filters. Try adjusting your filters or check back later.
+                    </p>
+                  </div>
+                ) : (
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="px-4 py-3">Invoice #</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Created</th>
+                        <th className="px-4 py-3">Paid At</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((invoice) => (
+                        <tr key={invoice.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {invoice.number}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className="font-medium text-gray-900">{invoice.customerName}</div>
+                              <div className="text-xs text-gray-500">{invoice.customerEmail}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-900">
+                              {invoice.currency} {invoice.amountPaid?.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              invoice.status === 'paid' ? 'bg-green-50 text-green-700' :
+                              invoice.status === 'pending' ? 'bg-yellow-50 text-yellow-700' :
+                              'bg-red-50 text-red-700'
+                            }`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {new Date(invoice.created).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-gray-800">
+                            {invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {invoice.hostedInvoiceUrl && (
+                                <a
+                                  href={invoice.hostedInvoiceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                >
+                                  <Eye size={14} /> View
+                                </a>
+                              )}
+                              {invoice.invoicePdf && (
+                                <a
+                                  href={invoice.invoicePdf}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                                >
+                                  <Download size={14} /> PDF
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              
+              {/* Invoice Table Info and Pagination */}
+              <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-600">
+                    Showing {invoices.length} invoice{invoices.length !== 1 ? 's' : ''} 
+                    {invoiceTotalPages > 1 && ` • Page ${invoicePage} of ${invoiceTotalPages}`}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {invoiceLoading && 'Loading...'}
+                  </div>
+                </div>
+                <Pagination page={invoicePage} totalPages={invoiceTotalPages} onChange={setInvoicePage} />
+              </div>
             </div>
-          </div>
-          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+          )}
         </div>
       </div>
 

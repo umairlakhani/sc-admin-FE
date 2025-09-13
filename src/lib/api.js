@@ -160,6 +160,8 @@ export const adminService = {
   updateRuleOption: (optionId, payload) => api.put(`/api/admin/matching-rules/options/${optionId}`, payload).then((r) => r.data),
   deleteRuleOption: (optionId) => api.delete(`/api/admin/matching-rules/options/${optionId}`).then((r) => r.data),
   bulkUpdateRuleOptions: (ruleId, payload) => api.put(`/api/admin/matching-rules/${ruleId}/options/bulk`, payload).then((r) => r.data),
+  // Stripe Invoices
+  getStripeInvoices: (params) => api.get('/api/admin/subscription-analytics/stripe/invoices', { params }).then((r) => r.data),
 }
 
 
