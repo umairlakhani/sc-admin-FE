@@ -279,4 +279,14 @@ export const adminService = {
     api
       .get("/api/admin/subscription-analytics/stripe/invoices", { params })
       .then((r) => r.data),
+    // Payment Summary Report
+    getPaymentSummary: (params) =>
+      api
+        .get("/api/admin/payment-summary", { params })
+        .then((r) => r.data),
+    // Financial Statement Report
+    getFinancialStatement: (params) =>
+      api
+        .get("/api/admin/payment-summary/financial-statement", { params })
+        .then((r) => r.data),
 };

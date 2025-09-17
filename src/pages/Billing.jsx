@@ -47,6 +47,25 @@ function Billing() {
   // Tab state
   const [activeTab, setActiveTab] = useState('subscriptions')
 
+  // Payment Summary state
+  const [paymentSummary, setPaymentSummary] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryFilters, setSummaryFilters] = useState({
+    startDate: '2024-01-01',
+    endDate: '2024-01-31',
+    period: '30d',
+    currency: 'USD',
+    paymentMethod: 'card',
+    status: 'succeeded',
+    includeRefunds: true,
+    includeDisputes: true
+  })
+
+  // Financial Statement Modal state
+  const [financialStatementModal, setFinancialStatementModal] = useState(false)
+  const [financialStatement, setFinancialStatement] = useState(null)
+  const [statementLoading, setStatementLoading] = useState(false)
+
   // Load analytics data
   async function loadAnalytics() {
     try {
@@ -116,6 +135,107 @@ function Billing() {
       loadInvoices()
     }
   }, [activeTab, invoicePage, invoiceFilters])
+
+  // Load payment summary when payment summary tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'payment-summary') {
+      loadPaymentSummary()
+    }
+  }, [activeTab, summaryFilters])
+
+  // Load payment summary data
+  async function loadPaymentSummary() {
+    setSummaryLoading(true)
+    try {
+      const params = {
+        startDate: summaryFilters.startDate,
+        endDate: summaryFilters.endDate,
+        period: summaryFilters.period,
+        currency: summaryFilters.currency,
+        paymentMethod: summaryFilters.paymentMethod,
+        status: summaryFilters.status,
+        includeRefunds: summaryFilters.includeRefunds,
+        includeDisputes: summaryFilters.includeDisputes
+      }
+      const response = await adminService.getPaymentSummary(params)
+      setPaymentSummary(response?.data || response)
+    } catch (error) {
+      console.error('Error loading payment summary:', error)
+      setPaymentSummary(null)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  // Load financial statement data
+  async function loadFinancialStatement() {
+    setStatementLoading(true)
+    try {
+      const params = {
+        startDate: summaryFilters.startDate,
+        endDate: summaryFilters.endDate,
+        period: summaryFilters.period,
+        currency: summaryFilters.currency
+      }
+      const response = await adminService.getFinancialStatement(params)
+      setFinancialStatement(response?.data || response)
+    } catch (error) {
+      console.error('Error loading financial statement:', error)
+      setFinancialStatement(null)
+    } finally {
+      setStatementLoading(false)
+    }
+  }
+
+  // Open financial statement modal
+  function openFinancialStatementModal() {
+    setFinancialStatementModal(true)
+    loadFinancialStatement()
+  }
+
+  // Download financial statement as CSV
+  function downloadFinancialStatement() {
+    if (!financialStatement) return
+
+    const { period, currency, statement } = financialStatement
+    
+    // Create CSV content
+    const csvContent = [
+      ['Financial Statement Report'],
+      [''],
+      ['Period', `${new Date(period.startDate).toLocaleDateString()} - ${new Date(period.endDate).toLocaleDateString()}`],
+      ['Currency', currency],
+      ['Time Period', period.period],
+      [''],
+      ['REVENUE'],
+      ['Subscription Revenue', `$${statement.revenue.subscriptionRevenue.toLocaleString()}`],
+      ['Stripe Revenue', `$${statement.revenue.stripeRevenue.toLocaleString()}`],
+      ['Total Revenue', `$${statement.totalRevenue.toLocaleString()}`],
+      [''],
+      ['EXPENSES'],
+      ['Refunds', `$${statement.expenses.refunds.toLocaleString()}`],
+      ['Fees', `$${statement.expenses.fees.toLocaleString()}`],
+      ['Disputes', `$${statement.expenses.disputes.toLocaleString()}`],
+      ['Total Expenses', `$${statement.totalExpenses.toLocaleString()}`],
+      [''],
+      ['FINANCIAL SUMMARY'],
+      ['Gross Profit', `$${statement.grossProfit.toLocaleString()}`],
+      ['Net Income', `$${statement.netIncome.toLocaleString()}`],
+      ['Operating Margin', `${Number(statement.operatingMargin).toFixed(1)}%`]
+    ].map(row => row.join(',')).join('\n')
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `financial-statement-${period.startDate}-to-${period.endDate}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
 
   async function openView(subscription) {
     setSelectedSubscription(subscription)
@@ -206,6 +326,19 @@ function Billing() {
               </svg>
               Invoices
             </button>
+            <button
+              onClick={() => setActiveTab('payment-summary')}
+              className={`flex items-center gap-2 px-4 py-3 rounded-t-lg font-medium text-sm transition-all ${
+                activeTab === 'payment-summary'
+                  ? 'bg-white text-gray-900 shadow-sm border border-gray-200 border-b-0 relative z-10'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Payment Summary
+            </button>
           </nav>
         </div>
 
@@ -214,7 +347,7 @@ function Billing() {
           {activeTab === 'subscriptions' && (
             <div>
               <div className="px-5 py-3 text-base font-semibold text-gray-900">Recent Subscriptions</div>
-              <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="text-sm text-gray-500">Loading subscriptions...</div>
@@ -230,20 +363,20 @@ function Billing() {
                     </p>
                   </div>
                 ) : (
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-500">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500">
                         <th className="px-4 py-3">User ID</th>
                         <th className="px-4 py-3">Plan ID</th>
                         <th className="px-4 py-3">Platform</th>
                         <th className="px-4 py-3">Interval</th>
                         <th className="px-4 py-3">Matching Count</th>
                         <th className="px-4 py-3">Transaction Date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
                       {subscriptions.map((subscription) => (
                         <tr key={subscription.id} className="border-t border-gray-100 hover:bg-gray-50">
                           <td className="px-4 py-3 font-medium text-gray-900">
@@ -267,25 +400,25 @@ function Billing() {
                               'N/A'
                             }
                           </td>
-                        <td className="px-4 py-3">
+                  <td className="px-4 py-3">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                               subscription.cancelledAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
                             }`}>
                               {subscription.cancelledAt ? 'Cancelled' : 'Active'}
                             </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button 
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button 
                               onClick={() => openView(subscription)}
                               className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 hover:bg-gray-50"
-                          >
+                    >
                               <Eye size={14} /> View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
                 )}
               </div>
               
@@ -461,6 +594,239 @@ function Billing() {
                 </div>
                 <Pagination page={invoicePage} totalPages={invoiceTotalPages} onChange={setInvoicePage} />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'payment-summary' && (
+            <div>
+              <div className="px-5 py-3 text-base font-semibold text-gray-900">Payment Summary Report</div>
+              
+              {/* Filters */}
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Start Date:</label>
+                    <input
+                      type="date"
+                      value={summaryFilters.startDate}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">End Date:</label>
+                    <input
+                      type="date"
+                      value={summaryFilters.endDate}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Period:</label>
+                    <select
+                      value={summaryFilters.period}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, period: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="7d">Last 7 days</option>
+                      <option value="30d">Last 30 days</option>
+                      <option value="90d">Last 90 days</option>
+                      <option value="1y">Last year</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Currency:</label>
+                    <select
+                      value={summaryFilters.currency}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, currency: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Payment Method:</label>
+                    <select
+                      value={summaryFilters.paymentMethod}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="card">Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="paypal">PayPal</option>
+                      <option value="wallet">Wallet</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Status:</label>
+                    <select
+                      value={summaryFilters.status}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, status: e.target.value }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="succeeded">Succeeded</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Failed</option>
+                      <option value="canceled">Canceled</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Include Refunds:</label>
+                    <select
+                      value={summaryFilters.includeRefunds}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, includeRefunds: e.target.value === 'true' }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value={true}>Yes</option>
+                      <option value={false}>No</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Include Disputes:</label>
+                    <select
+                      value={summaryFilters.includeDisputes}
+                      onChange={(e) => setSummaryFilters(prev => ({ ...prev, includeDisputes: e.target.value === 'true' }))}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value={true}>Yes</option>
+                      <option value={false}>No</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between mt-4">
+                  <button
+                    onClick={loadPaymentSummary}
+                    disabled={summaryLoading}
+                    className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {summaryLoading ? 'Loading...' : 'Generate Report'}
+                  </button>
+                  
+                  <button
+                    onClick={openFinancialStatementModal}
+                    className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Download size={16} />
+                    Download Report
+                  </button>
+                </div>
+              </div>
+
+              {/* Report Content */}
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Generating payment summary report...</p>
+                  </div>
+                </div>
+              ) : paymentSummary ? (
+                <div className="p-5 space-y-6">
+                  {/* Financial Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Total Revenue</div>
+                      <div className="text-2xl font-semibold text-gray-900">
+                        ${paymentSummary.financialSummary?.totalRevenue?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Total Charges</div>
+                      <div className="text-2xl font-semibold text-gray-900">
+                        ${paymentSummary.financialSummary?.totalCharges?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Total Refunds</div>
+                      <div className="text-2xl font-semibold text-red-600">
+                        ${paymentSummary.financialSummary?.totalRefunds?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Net Revenue</div>
+                      <div className="text-2xl font-semibold text-green-600">
+                        ${paymentSummary.financialSummary?.netRevenue?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* KPIs */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Success Rate</div>
+                      <div className="text-2xl font-semibold text-gray-900">
+                        {(paymentSummary.kpis?.chargeSuccessRate || 0).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Refund Rate</div>
+                      <div className="text-2xl font-semibold text-red-600">
+                        {(paymentSummary.kpis?.refundRate || 0).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Dispute Rate</div>
+                      <div className="text-2xl font-semibold text-yellow-600">
+                        {(paymentSummary.kpis?.disputeRate || 0).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="text-sm text-gray-500">Avg Transaction</div>
+                      <div className="text-2xl font-semibold text-gray-900">
+                        ${paymentSummary.kpis?.averageTransactionValue?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Period Information */}
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Period</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Start Date</div>
+                        <div className="font-medium text-gray-900">
+                          {paymentSummary.period?.startDate ? new Date(paymentSummary.period.startDate).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">End Date</div>
+                        <div className="font-medium text-gray-900">
+                          {paymentSummary.period?.endDate ? new Date(paymentSummary.period.endDate).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Period</div>
+                        <div className="font-medium text-gray-900">
+                          {paymentSummary.period?.period || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600">Click "Generate Report" to view payment summary</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -692,6 +1058,168 @@ function Billing() {
               )}
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* Financial Statement Modal */}
+      <Modal open={financialStatementModal} onClose={() => setFinancialStatementModal(false)} title="Financial Statement Report">
+        {statementLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading financial statement...</p>
+            </div>
+          </div>
+        ) : financialStatement ? (
+          <div className="space-y-6">
+            {/* Report Header */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Statement</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-500">Period</div>
+                  <div className="font-medium text-gray-900">
+                    {financialStatement.period?.startDate ? new Date(financialStatement.period.startDate).toLocaleDateString() : 'N/A'} - 
+                    {financialStatement.period?.endDate ? new Date(financialStatement.period.endDate).toLocaleDateString() : 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Currency</div>
+                  <div className="font-medium text-gray-900">
+                    {financialStatement.currency || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Time Period</div>
+                  <div className="font-medium text-gray-900">
+                    {financialStatement.period?.period || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Revenue Section */}
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                Revenue
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="text-sm text-green-600 font-medium">Subscription Revenue</div>
+                  <div className="text-2xl font-bold text-green-700">
+                    ${financialStatement.statement?.revenue?.subscriptionRevenue?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="text-sm text-green-600 font-medium">Stripe Revenue</div>
+                  <div className="text-2xl font-bold text-green-700">
+                    ${financialStatement.statement?.revenue?.stripeRevenue?.toLocaleString() || '0'}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-900">Total Revenue</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    ${financialStatement.statement?.totalRevenue?.toLocaleString() || '0'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Expenses Section */}
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                Expenses
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="text-sm text-red-600 font-medium">Refunds</div>
+                  <div className="text-2xl font-bold text-red-700">
+                    ${financialStatement.statement?.expenses?.refunds?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="text-sm text-red-600 font-medium">Fees</div>
+                  <div className="text-2xl font-bold text-red-700">
+                    ${financialStatement.statement?.expenses?.fees?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="text-sm text-red-600 font-medium">Disputes</div>
+                  <div className="text-2xl font-bold text-red-700">
+                    ${financialStatement.statement?.expenses?.disputes?.toLocaleString() || '0'}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-900">Total Expenses</span>
+                  <span className="text-2xl font-bold text-red-600">
+                    ${financialStatement.statement?.totalExpenses?.toLocaleString() || '0'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                Financial Summary
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-sm text-blue-600 font-medium">Gross Profit</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    ${financialStatement.statement?.grossProfit?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-sm text-blue-600 font-medium">Net Income</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    ${financialStatement.statement?.netIncome?.toLocaleString() || '0'}
+                  </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-sm text-blue-600 font-medium">Operating Margin</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    {Number(financialStatement.statement?.operatingMargin || 0).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+              <button 
+                onClick={() => setFinancialStatementModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Close
+              </button>
+              <button 
+                onClick={downloadFinancialStatement}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <Download size={16} className="inline mr-2" />
+                Download CSV
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-600">Failed to load financial statement</p>
+          </div>
+        </div>
         )}
       </Modal>
     </div>
