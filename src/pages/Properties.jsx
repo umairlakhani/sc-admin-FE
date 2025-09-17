@@ -64,6 +64,8 @@ function Properties() {
   const [totalPages, setTotalPages] = useState(1);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   // Filter states
   const [search, setSearch] = useState("");
@@ -94,6 +96,20 @@ function Properties() {
     }
   }
 
+  // Load users for dropdown
+  async function loadUsers() {
+    setUsersLoading(true);
+    try {
+      const res = await adminService.listUsers({ limit: 1000 }); // Get all users
+      console.log(res)
+      setUsers(res?.users || []);
+    } catch (err) {
+      showToast(err.message || "Failed to load users", "error");
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
   console.log(properties);
 
   function openCreate() {
@@ -101,20 +117,37 @@ function Properties() {
       id: "",
       propertyTitle: "",
       propertyType: "apartment",
-      offeringType: "rental",
+      offeringType: "purchase",
       price: 0,
       currency: "CHF",
       bedrooms: 0,
+      units: 0,
       squareMeters: 0,
-      listType: "offer",
       userId: "",
+      listType: "offer",
+      countryISO: "",
+      countryName: "",
+      city: "",
+      zipCode: "",
+      fullAddress: "",
+      zipList: {},
+      flatZipList: {}
     });
     setCreateOpen(true);
+    loadUsers(); // Load users when opening create modal
   }
 
   async function saveProperty() {
     if (!current.propertyTitle) {
       showToast("Please enter a property title", "error");
+      return;
+    }
+    if (!current.price || current.price <= 0) {
+      showToast("Please enter a valid price", "error");
+      return;
+    }
+    if (!current.userId) {
+      showToast("Please select a user", "error");
       return;
     }
 
@@ -125,9 +158,9 @@ function Properties() {
         await adminService.updateProperty(current.id, current);
         showToast("Property updated successfully");
       } else {
-        // Create new property - Note: API doesn't have create endpoint, so we'll show error
-        showToast("Property creation not supported by API", "error");
-        return;
+        // Create new property
+        await adminService.createProperty(current);
+        showToast("Property created successfully");
       }
       setCreateOpen(false);
       setEditOpen(false);
@@ -268,6 +301,7 @@ function Properties() {
                     <th className="px-4 py-3">Offering</th>
                     <th className="px-4 py-3">Price</th>
                     <th className="px-4 py-3">Beds</th>
+                    <th className="px-4 py-3">Units</th>
                     <th className="px-4 py-3">Area (m²)</th>
                     <th className="px-4 py-3">List Type</th>
                     <th className="px-4 py-3">Owner</th>
@@ -297,6 +331,7 @@ function Properties() {
                         }).format(p.price)}
                       </td>
                       <td className="px-4 py-3 text-gray-800">{p.bedrooms}</td>
+                      <td className="px-4 py-3 text-gray-800">{p.units || 0}</td>
                       <td className="px-4 py-3 text-gray-800">
                         {p.squareMeters}
                       </td>
@@ -423,8 +458,8 @@ function Properties() {
                 >
                   <option value="apartment">Apartment</option>
                   <option value="house/villa">House/Villa</option>
-                  <option value="office">Office</option>
                   <option value="plot">Plot</option>
+                  <option value="multifamily">Multifamily</option>
                 </select>
               </div>
               <div>
@@ -432,14 +467,14 @@ function Properties() {
                   Offering Type
                 </label>
                 <select
-                  value={current.offeringType || "rental"}
+                  value={current.offeringType || "purchase"}
                   onChange={(e) =>
                     setCurrent((p) => ({ ...p, offeringType: e.target.value }))
                   }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  <option value="rental">Rental</option>
                   <option value="purchase">Purchase</option>
+                  <option value="rental">Rental</option>
                 </select>
               </div>
               <div>
@@ -519,6 +554,110 @@ function Properties() {
                     }))
                   }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  Units
+                </label>
+                <input
+                  type="number"
+                  value={current.units || 0}
+                  onChange={(e) =>
+                    setCurrent((p) => ({
+                      ...p,
+                      units: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  User
+                </label>
+                <select
+                  value={current.userId || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, userId: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  disabled={usersLoading}
+                >
+                  <option value="">Select a user</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} {user.surname} ({user.email})
+                    </option>
+                  ))}
+                </select>
+                {usersLoading && (
+                  <p className="mt-1 text-xs text-gray-500">Loading users...</p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  Country ISO
+                </label>
+                <input
+                  value={current.countryISO || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, countryISO: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., CH, DE, FR"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  Country Name
+                </label>
+                <input
+                  value={current.countryName || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, countryName: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="e.g., Switzerland, Germany, France"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  City
+                </label>
+                <input
+                  value={current.city || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, city: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter city name"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-700">
+                  ZIP Code
+                </label>
+                <input
+                  value={current.zipCode || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, zipCode: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter ZIP code"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-sm text-gray-700">
+                  Full Address
+                </label>
+                <input
+                  value={current.fullAddress || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, fullAddress: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter complete address"
                 />
               </div>
             </div>

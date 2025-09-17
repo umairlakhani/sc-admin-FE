@@ -212,7 +212,7 @@ function PropertyView() {
             )}
           </Section>
 
-          <Section title="Matching options (per property)">
+          {/* <Section title="Matching options (per property)">
             <div className="grid grid-cols-2 gap-3 text-sm">
               {attributes.map((attr) => (
                 <label key={attr} className="inline-flex items-center gap-2">
@@ -238,7 +238,7 @@ function PropertyView() {
               <button onClick={savePropRules} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Save rules</button>
               <span className="ml-2 text-xs text-gray-500">Saved locally per property</span>
             </div>
-          </Section>
+          </Section> */}
 
           {/* <Section title="Custom matching rules (per property)">
             <div className="space-y-3">
