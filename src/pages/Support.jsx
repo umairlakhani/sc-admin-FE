@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MoreVertical, Eye, Send, Trash2, MessageSquare, Edit, Shield } from 'lucide-react'
 import { adminService } from '../lib/api'
 import { showToast } from '../lib/toast'
@@ -21,6 +22,7 @@ function Modal({ open, onClose, title, children }) {
 }
 
 function Support() {
+  const navigate = useNavigate()
   const [tickets, setTickets] = useState([])
   const [statistics, setStatistics] = useState({ total: 0, resolved: 0, inProgress: 0, open: 0, closed: 0 })
   const [loading, setLoading] = useState(true)
@@ -88,8 +90,7 @@ function Support() {
   }
 
   function openView(ticket) {
-    setCurrent(ticket)
-    setViewOpen(true)
+    navigate(`/support/${ticket.id}`, { state: { ticket } })
   }
 
   function openReply(ticket) {

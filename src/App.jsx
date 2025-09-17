@@ -9,6 +9,7 @@ import Properties from './pages/Properties'
 import PropertyView from './pages/PropertyView'
 import Notifications from './pages/Notifications'
 import Support from './pages/Support'
+import SupportView from './pages/SupportView'
 import SignIn from './pages/SignIn'
 import Billing from './pages/Billing'
 import Staff from './pages/Staff'
@@ -86,6 +87,11 @@ function App() {
           <Route path="support" element={
             <ProtectedRoute requiredPermission="support.read">
               <Support />
+            </ProtectedRoute>
+          } />
+          <Route path="support/:id" element={
+            <ProtectedRoute requiredPermission="support.read">
+              <SupportView />
             </ProtectedRoute>
           } />
           <Route path="notifications" element={

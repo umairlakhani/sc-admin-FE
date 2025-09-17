@@ -1,149 +1,181 @@
-import { useState, useEffect } from 'react'
-import { propertiesData, usersData, matchingRules, matchingSettings } from '../data'
-import { Plus, MoreVertical, Eye, Pencil, Trash2, Upload, Settings } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { adminService } from '../lib/api'
-import { showToast } from '../lib/toast'
-import Pagination from '../components/Pagination'
+import { useState, useEffect } from "react";
+import {
+  propertiesData,
+  usersData,
+  matchingRules,
+  matchingSettings,
+} from "../data";
+import {
+  Plus,
+  MoreVertical,
+  Eye,
+  Pencil,
+  Trash2,
+  Upload,
+  Settings,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { adminService } from "../lib/api";
+import { showToast } from "../lib/toast";
+import Pagination from "../components/Pagination";
 
 function Modal({ open, onClose, title, children }) {
-  if (!open) return null
+  if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-gray-200 p-5">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-base font-semibold text-gray-900">{title}</div>
-          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700">Close</button>
+          <button
+            onClick={onClose}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Close
+          </button>
         </div>
         {children}
       </div>
     </div>
-  )
+  );
 }
 
 function Properties() {
-  const navigate = useNavigate()
-  const [properties, setProperties] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [menuOpen, setMenuOpen] = useState('')
-  const [editOpen, setEditOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [current, setCurrent] = useState(null)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [rulesOpen, setRulesOpen] = useState(false)
-  const [rules, setRules] = useState(matchingRules)
-  const [settings, setSettings] = useState(matchingSettings)
-  const [availableAttributes, setAvailableAttributes] = useState(['bedrooms','location_radius_km','price','type','areaSqft'])
-  const [newAttribute, setNewAttribute] = useState('')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  
+  const navigate = useNavigate();
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [current, setCurrent] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [rules, setRules] = useState(matchingRules);
+  const [settings, setSettings] = useState(matchingSettings);
+  const [availableAttributes, setAvailableAttributes] = useState([
+    "bedrooms",
+    "location_radius_km",
+    "price",
+    "type",
+    "areaSqft",
+  ]);
+  const [newAttribute, setNewAttribute] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Filter states
-  const [search, setSearch] = useState('')
-  const [userId, setUserId] = useState('')
-  const [offeringType, setOfferingType] = useState('')
-  const [propertyType, setPropertyType] = useState('')
-  const [listType, setListType] = useState('')
+  const [search, setSearch] = useState("");
+  const [userId, setUserId] = useState("");
+  const [offeringType, setOfferingType] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [listType, setListType] = useState("");
 
   // Load properties
   async function loadProperties() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = { page, limit: 6 }
-      if (search) params.search = search
-      if (userId) params.userId = userId
-      if (offeringType) params.offeringType = offeringType
-      if (propertyType) params.propertyType = propertyType
-      if (listType) params.listType = listType
-      
-      const res = await adminService.listProperties(params)
-      setProperties(res?.properties || [])
-      setTotalPages(res?.pagination?.totalPages || 1)
+      const params = { page, limit: 6 };
+      if (search) params.search = search;
+      if (userId) params.userId = userId;
+      if (offeringType) params.offeringType = offeringType;
+      if (propertyType) params.propertyType = propertyType;
+      if (listType) params.listType = listType;
+
+      const res = await adminService.listProperties(params);
+      setProperties(res?.data?.properties || []);
+      console.log(res);
+      setTotalPages(res?.data?.pagination?.totalPages || 1);
     } catch (err) {
-      showToast(err.message || 'Failed to load properties', 'error')
+      showToast(err.message || "Failed to load properties", "error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
+  console.log(properties);
+
   function openCreate() {
     setCurrent({
-      id: '',
-      propertyTitle: '',
-      propertyType: 'apartment',
-      offeringType: 'rental',
+      id: "",
+      propertyTitle: "",
+      propertyType: "apartment",
+      offeringType: "rental",
       price: 0,
-      currency: 'CHF',
+      currency: "CHF",
       bedrooms: 0,
       squareMeters: 0,
-      listType: 'offer',
-      userId: '',
-    })
-    setCreateOpen(true)
+      listType: "offer",
+      userId: "",
+    });
+    setCreateOpen(true);
   }
 
   async function saveProperty() {
     if (!current.propertyTitle) {
-      showToast('Please enter a property title', 'error')
-      return
+      showToast("Please enter a property title", "error");
+      return;
     }
-    
-    setSaving(true)
+
+    setSaving(true);
     try {
       if (current.id) {
         // Update existing property
-        await adminService.updateProperty(current.id, current)
-        showToast('Property updated successfully')
+        await adminService.updateProperty(current.id, current);
+        showToast("Property updated successfully");
       } else {
         // Create new property - Note: API doesn't have create endpoint, so we'll show error
-        showToast('Property creation not supported by API', 'error')
-        return
+        showToast("Property creation not supported by API", "error");
+        return;
       }
-      setCreateOpen(false)
-      setEditOpen(false)
-      loadProperties()
+      setCreateOpen(false);
+      setEditOpen(false);
+      loadProperties();
     } catch (err) {
-      showToast(err.message || 'Failed to save property', 'error')
+      showToast(err.message || "Failed to save property", "error");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   function confirmDelete(property) {
-    setCurrent(property)
-    setDeleteOpen(true)
+    setCurrent(property);
+    setDeleteOpen(true);
   }
 
   async function doDelete() {
-    setDeleting(true)
+    setDeleting(true);
     try {
-      await adminService.deleteProperty(current.id)
-      showToast('Property deleted successfully')
-      setDeleteOpen(false)
-      loadProperties()
+      await adminService.deleteProperty(current.id);
+      showToast("Property deleted successfully");
+      setDeleteOpen(false);
+      loadProperties();
     } catch (err) {
-      showToast(err.message || 'Failed to delete property', 'error')
+      showToast(err.message || "Failed to delete property", "error");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
   useEffect(() => {
-    loadProperties()
-  }, [page, search, userId, offeringType, propertyType, listType])
+    loadProperties();
+  }, [page, search, userId, offeringType, propertyType, listType]);
 
   return (
     <div className="h-full flex flex-col space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-gray-900">Manage Properties</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">
+          Manage Properties
+        </h2>
         <div className="inline-flex items-center gap-2">
           {/* <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
             <Settings size={16} /> Matching rules
           </button> */}
-          <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"
+          >
             <Plus size={16} /> New property
           </button>
         </div>
@@ -152,31 +184,39 @@ function Properties() {
       <div className="flex-1 rounded-2xl border border-gray-200 bg-white flex flex-col">
         {/* Filters */}
         <div className="p-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
-          <input 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && (setPage(1), loadProperties())} 
-            placeholder="Search by property title, type, or offering type..." 
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm" 
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && (setPage(1), loadProperties())
+            }
+            placeholder="Search by property title, type, or offering type..."
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
-          <input 
-            value={userId} 
-            onChange={(e) => setUserId(e.target.value)} 
-            placeholder="User ID" 
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm" 
-          />
-          <select 
-            value={offeringType} 
-            onChange={(e) => { setPage(1); setOfferingType(e.target.value) }} 
+          {/* <input
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="User ID"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          /> */}
+          <select
+            value={offeringType}
+            onChange={(e) => {
+              setPage(1);
+              setOfferingType(e.target.value);
+            }}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Offering: any</option>
             <option value="purchase">Purchase</option>
             <option value="rental">Rental</option>
           </select>
-          <select 
-            value={propertyType} 
-            onChange={(e) => { setPage(1); setPropertyType(e.target.value) }} 
+          <select
+            value={propertyType}
+            onChange={(e) => {
+              setPage(1);
+              setPropertyType(e.target.value);
+            }}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Property: any</option>
@@ -185,28 +225,36 @@ function Properties() {
             <option value="plot">Plot</option>
             <option value="multifamily">Multifamily</option>
           </select>
-          <select 
-            value={listType} 
-            onChange={(e) => { setPage(1); setListType(e.target.value) }} 
+          <select
+            value={listType}
+            onChange={(e) => {
+              setPage(1);
+              setListType(e.target.value);
+            }}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">List: any</option>
             <option value="offer">Offer</option>
             <option value="demand">Demand</option>
           </select>
-          <button 
-            onClick={() => { setPage(1); loadProperties() }} 
+          <button
+            onClick={() => {
+              setPage(1);
+              loadProperties();
+            }}
             className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
           >
             Apply
           </button>
         </div>
-        
+
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
-              <p className="mt-2 text-sm text-gray-500">Loading properties...</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Loading properties...
+              </p>
             </div>
           </div>
         ) : (
@@ -229,58 +277,94 @@ function Properties() {
                 </thead>
                 <tbody>
                   {properties.map((p) => (
-                    <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={p.id}
+                      className="border-t border-gray-100 hover:bg-gray-50"
+                    >
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        {p.propertyTitle || 'Untitled Property'}
+                        {p.propertyTitle || "Untitled Property"}
                       </td>
                       <td className="px-4 py-3 text-gray-800 capitalize">
-                        {p.propertyType?.replace('/', ' / ')}
+                        {p.propertyType?.replace("/", " / ")}
                       </td>
                       <td className="px-4 py-3 text-gray-800 capitalize">
                         {p.offeringType}
                       </td>
                       <td className="px-4 py-3 text-gray-800">
-                        {new Intl.NumberFormat('en-CH', { 
-                          style: 'currency', 
-                          currency: p.currency || 'CHF' 
+                        {new Intl.NumberFormat("en-CH", {
+                          style: "currency",
+                          currency: p.currency || "CHF",
                         }).format(p.price)}
                       </td>
                       <td className="px-4 py-3 text-gray-800">{p.bedrooms}</td>
-                      <td className="px-4 py-3 text-gray-800">{p.squareMeters}</td>
+                      <td className="px-4 py-3 text-gray-800">
+                        {p.squareMeters}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          p.listType === 'offer' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
-                        }`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            p.listType === "offer"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-orange-50 text-orange-700"
+                          }`}
+                        >
                           {p.listType}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-800">
-                        {p.User ? `${p.User.name} ${p.User.surname}` : 'Unknown'}
+                        {p.User
+                          ? `${p.User.name} ${p.User.surname}`
+                          : "Unknown"}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          p.deletedAt ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                        }`}>
-                          {p.deletedAt ? 'Deleted' : 'Active'}
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            p.deletedAt
+                              ? "bg-red-50 text-red-700"
+                              : "bg-green-50 text-green-700"
+                          }`}
+                        >
+                          {p.deletedAt ? "Deleted" : "Active"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="relative">
                           <button
                             className="ml-auto flex items-center rounded-md border border-gray-200 bg-white p-2 hover:bg-gray-100"
-                            onClick={() => setMenuOpen(menuOpen === p.id ? '' : p.id)}
+                            onClick={() =>
+                              setMenuOpen(menuOpen === p.id ? "" : p.id)
+                            }
                           >
                             <MoreVertical size={16} />
                           </button>
                           {menuOpen === p.id && (
                             <div className="absolute right-0 z-50 mt-2 w-40 rounded-md border border-gray-200 bg-white shadow-lg">
-                              <button onClick={() => { setMenuOpen(''); navigate(`/properties/${p.id}`) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
+                              <button
+                                onClick={() => {
+                                  setMenuOpen("");
+                                  navigate(`/properties/${p.id}`);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              >
                                 <Eye size={14} /> View
                               </button>
-                              <button onClick={() => { setMenuOpen(''); setCurrent(p); setEditOpen(true) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
+                              <button
+                                onClick={() => {
+                                  setMenuOpen("");
+                                  setCurrent(p);
+                                  setEditOpen(true);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              >
                                 <Pencil size={14} /> Edit
                               </button>
-                              <button onClick={() => { setMenuOpen(''); confirmDelete(p) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                              <button
+                                onClick={() => {
+                                  setMenuOpen("");
+                                  confirmDelete(p);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              >
                                 <Trash2 size={14} /> Delete
                               </button>
                             </div>
@@ -292,30 +376,49 @@ function Properties() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={setPage}
+            />
           </>
         )}
       </div>
 
       {/* Create/Edit property */}
-      <Modal open={createOpen || editOpen} onClose={() => { setCreateOpen(false); setEditOpen(false) }} title={current?.id ? 'Edit property' : 'Create property'}>
+      <Modal
+        open={createOpen || editOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditOpen(false);
+        }}
+        title={current?.id ? "Edit property" : "Create property"}
+      >
         {current && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Property Title</label>
-                <input 
-                  value={current.propertyTitle || ''} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, propertyTitle: e.target.value }))} 
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Property Title
+                </label>
+                <input
+                  value={current.propertyTitle || ""}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, propertyTitle: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="Enter property title"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Property Type</label>
-                <select 
-                  value={current.propertyType || 'apartment'} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, propertyType: e.target.value }))} 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Property Type
+                </label>
+                <select
+                  value={current.propertyType || "apartment"}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, propertyType: e.target.value }))
+                  }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="apartment">Apartment</option>
@@ -325,10 +428,14 @@ function Properties() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Offering Type</label>
-                <select 
-                  value={current.offeringType || 'rental'} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, offeringType: e.target.value }))} 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Offering Type
+                </label>
+                <select
+                  value={current.offeringType || "rental"}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, offeringType: e.target.value }))
+                  }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="rental">Rental</option>
@@ -336,10 +443,14 @@ function Properties() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">List Type</label>
-                <select 
-                  value={current.listType || 'offer'} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, listType: e.target.value }))} 
+                <label className="mb-1 block text-sm text-gray-700">
+                  List Type
+                </label>
+                <select
+                  value={current.listType || "offer"}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, listType: e.target.value }))
+                  }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="offer">Offer</option>
@@ -347,19 +458,30 @@ function Properties() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Price</label>
-                <input 
-                  type="number" 
-                  value={current.price || 0} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, price: parseFloat(e.target.value) || 0 }))} 
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Price
+                </label>
+                <input
+                  type="number"
+                  value={current.price || 0}
+                  onChange={(e) =>
+                    setCurrent((p) => ({
+                      ...p,
+                      price: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Currency</label>
-                <select 
-                  value={current.currency || 'CHF'} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, currency: e.target.value }))} 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Currency
+                </label>
+                <select
+                  value={current.currency || "CHF"}
+                  onChange={(e) =>
+                    setCurrent((p) => ({ ...p, currency: e.target.value }))
+                  }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="CHF">CHF</option>
@@ -368,33 +490,55 @@ function Properties() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Bedrooms</label>
-                <input 
-                  type="number" 
-                  value={current.bedrooms || 0} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, bedrooms: parseInt(e.target.value) || 0 }))} 
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Bedrooms
+                </label>
+                <input
+                  type="number"
+                  value={current.bedrooms || 0}
+                  onChange={(e) =>
+                    setCurrent((p) => ({
+                      ...p,
+                      bedrooms: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-700">Area (m²)</label>
-                <input 
-                  type="number" 
-                  value={current.squareMeters || 0} 
-                  onChange={(e) => setCurrent((p) => ({ ...p, squareMeters: parseInt(e.target.value) || 0 }))} 
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" 
+                <label className="mb-1 block text-sm text-gray-700">
+                  Area (m²)
+                </label>
+                <input
+                  type="number"
+                  value={current.squareMeters || 0}
+                  onChange={(e) =>
+                    setCurrent((p) => ({
+                      ...p,
+                      squareMeters: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button onClick={() => { setCreateOpen(false); setEditOpen(false) }} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button 
-                onClick={saveProperty} 
+              <button
+                onClick={() => {
+                  setCreateOpen(false);
+                  setEditOpen(false);
+                }}
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveProperty}
                 disabled={saving}
                 className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
@@ -402,28 +546,59 @@ function Properties() {
       </Modal>
 
       {/* Delete confirm */}
-      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete property">
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete property"
+      >
         <div className="space-y-4">
-          <p className="text-sm text-gray-700">Are you sure you want to delete <span className="font-medium">{current?.propertyTitle || 'this property'}</span>?</p>
+          <p className="text-sm text-gray-700">
+            Are you sure you want to delete{" "}
+            <span className="font-medium">
+              {current?.propertyTitle || "this property"}
+            </span>
+            ?
+          </p>
           <div className="flex items-center justify-end gap-2">
-            <button onClick={() => setDeleteOpen(false)} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Cancel</button>
-            <button 
-              onClick={doDelete} 
+            <button
+              onClick={() => setDeleteOpen(false)}
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={doDelete}
               disabled={deleting}
               className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Matching rules */}
-      <Modal open={rulesOpen} onClose={() => setRulesOpen(false)} title="Property matching rules">
+      <Modal
+        open={rulesOpen}
+        onClose={() => setRulesOpen(false)}
+        title="Property matching rules"
+      >
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm text-gray-700">Overall threshold (%)</label>
-            <input type="number" value={settings.overallThresholdPct} onChange={(e) => setSettings((s) => ({ ...s, overallThresholdPct: parseInt(e.target.value) || 0 }))} className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <label className="mb-1 block text-sm text-gray-700">
+              Overall threshold (%)
+            </label>
+            <input
+              type="number"
+              value={settings.overallThresholdPct}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  overallThresholdPct: parseInt(e.target.value) || 0,
+                }))
+              }
+              className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
           </div>
           <div className="rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
@@ -440,25 +615,107 @@ function Properties() {
               <tbody>
                 {rules.map((r, idx) => (
                   <tr key={r.id} className="border-t border-gray-100">
-                    <td className="px-3 py-2"><input type="checkbox" checked={r.enabled} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, enabled: e.target.checked } : x))} /></td>
                     <td className="px-3 py-2">
-                      <select value={r.attribute} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, attribute: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={r.enabled}
+                        onChange={(e) =>
+                          setRules((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? { ...x, enabled: e.target.checked }
+                                : x
+                            )
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={r.attribute}
+                        onChange={(e) =>
+                          setRules((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? { ...x, attribute: e.target.value }
+                                : x
+                            )
+                          )
+                        }
+                        className="rounded-md border border-gray-300 px-2 py-1"
+                      >
                         {availableAttributes.map((attr) => (
-                          <option key={attr} value={attr}>{attr}</option>
+                          <option key={attr} value={attr}>
+                            {attr}
+                          </option>
                         ))}
                       </select>
                     </td>
                     <td className="px-3 py-2">
-                      <select value={r.operator} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, operator: e.target.value } : x))} className="rounded-md border border-gray-300 px-2 py-1">
-                        <option>{'=='}</option>
-                        <option>{'>='}</option>
-                        <option>{'<='}</option>
+                      <select
+                        value={r.operator}
+                        onChange={(e) =>
+                          setRules((arr) =>
+                            arr.map((x, i) =>
+                              i === idx ? { ...x, operator: e.target.value } : x
+                            )
+                          )
+                        }
+                        className="rounded-md border border-gray-300 px-2 py-1"
+                      >
+                        <option>{"=="}</option>
+                        <option>{">="}</option>
+                        <option>{"<="}</option>
                       </select>
                     </td>
-                    <td className="px-3 py-2"><input value={r.value} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, value: isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value) } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
-                    <td className="px-3 py-2 w-32"><input type="number" value={r.weightPct} onChange={(e) => setRules((arr) => arr.map((x, i) => i === idx ? { ...x, weightPct: parseInt(e.target.value) || 0 } : x))} className="w-full rounded-md border border-gray-300 px-2 py-1" /></td>
+                    <td className="px-3 py-2">
+                      <input
+                        value={r.value}
+                        onChange={(e) =>
+                          setRules((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? {
+                                    ...x,
+                                    value: isNaN(Number(e.target.value))
+                                      ? e.target.value
+                                      : Number(e.target.value),
+                                  }
+                                : x
+                            )
+                          )
+                        }
+                        className="w-full rounded-md border border-gray-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-3 py-2 w-32">
+                      <input
+                        type="number"
+                        value={r.weightPct}
+                        onChange={(e) =>
+                          setRules((arr) =>
+                            arr.map((x, i) =>
+                              i === idx
+                                ? {
+                                    ...x,
+                                    weightPct: parseInt(e.target.value) || 0,
+                                  }
+                                : x
+                            )
+                          )
+                        }
+                        className="w-full rounded-md border border-gray-300 px-2 py-1"
+                      />
+                    </td>
                     <td className="px-3 py-2 text-right">
-                      <button onClick={() => setRules((arr) => arr.filter((_, i) => i !== idx))} className="text-sm text-red-600 hover:underline">Remove</button>
+                      <button
+                        onClick={() =>
+                          setRules((arr) => arr.filter((_, i) => i !== idx))
+                        }
+                        className="text-sm text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -467,27 +724,61 @@ function Properties() {
           </div>
           <div className="flex items-end gap-2">
             <div>
-              <label className="mb-1 block text-sm text-gray-700">Add new attribute</label>
-              <input value={newAttribute} onChange={(e) => setNewAttribute(e.target.value)} placeholder="e.g. furnishing, pets_allowed" className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+              <label className="mb-1 block text-sm text-gray-700">
+                Add new attribute
+              </label>
+              <input
+                value={newAttribute}
+                onChange={(e) => setNewAttribute(e.target.value)}
+                placeholder="e.g. furnishing, pets_allowed"
+                className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
             </div>
             <button
-              onClick={() => { if (newAttribute && !availableAttributes.includes(newAttribute)) { setAvailableAttributes((a) => [...a, newAttribute]); setNewAttribute('') } }}
+              onClick={() => {
+                if (
+                  newAttribute &&
+                  !availableAttributes.includes(newAttribute)
+                ) {
+                  setAvailableAttributes((a) => [...a, newAttribute]);
+                  setNewAttribute("");
+                }
+              }}
               className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
             >
               Add attribute
             </button>
           </div>
           <div className="flex items-center justify-between">
-            <button onClick={() => setRules((arr) => [...arr, { id: `r-${Math.floor(Math.random()*9000)+1000}`, attribute: 'bedrooms', operator: '>=', value: 1, weightPct: 10, enabled: true }])} className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">Add rule</button>
-            <button onClick={() => setRulesOpen(false)} className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600">Done</button>
+            <button
+              onClick={() =>
+                setRules((arr) => [
+                  ...arr,
+                  {
+                    id: `r-${Math.floor(Math.random() * 9000) + 1000}`,
+                    attribute: "bedrooms",
+                    operator: ">=",
+                    value: 1,
+                    weightPct: 10,
+                    enabled: true,
+                  },
+                ])
+              }
+              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              Add rule
+            </button>
+            <button
+              onClick={() => setRulesOpen(false)}
+              className="rounded-md bg-green-500 px-3 py-2 text-sm font-medium text-white hover:bg-green-600"
+            >
+              Done
+            </button>
           </div>
         </div>
       </Modal>
     </div>
-  )
+  );
 }
 
-export default Properties
-
-
-
+export default Properties;
