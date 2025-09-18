@@ -1,7 +1,7 @@
 import axios from "axios";
 
-//const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
-const baseURL = "http://localhost:3000";
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'https://api.searchcasa.ch'
+//const baseURL = "http://localhost:3000";
 export const api = axios.create({ baseURL, withCredentials: false });
 
 // Attach Authorization header if token is present
