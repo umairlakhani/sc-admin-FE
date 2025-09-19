@@ -229,6 +229,41 @@ export const adminService = {
     api.delete(`/api/admin/properties/${id}`).then((r) => r.data),
   togglePropertyDelete: (id) =>
     api.patch(`/api/admin/properties/${id}/toggle-delete`).then((r) => r.data),
+  // Multi-Step Property Creation
+  createPropertyDraft: (payload) =>
+    api.post("/api/admin/properties/draft", payload).then((r) => r.data),
+  addPropertyCriteria: (propertyId, payload) =>
+    api.post(`/api/admin/properties/${propertyId}/draft/criteria`, payload).then((r) => r.data),
+  addPropertyShowcase: (propertyId, payload) =>
+    api.post(`/api/admin/properties/${propertyId}/draft/showcase`, payload).then((r) => r.data),
+  addPropertyDemandCriteria: (propertyId, payload) =>
+    api.post(`/api/admin/properties/${propertyId}/draft/demand-criteria`, payload).then((r) => r.data),
+  finalizeProperty: (propertyId) =>
+    api.post(`/api/admin/properties/${propertyId}/finalize`).then((r) => r.data),
+  // Image Upload
+  uploadImage: (formData) =>
+    api.post("/api/upload/image", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then((r) => r.data),
+  uploadImages: (formData) =>
+    api.post("/api/upload/images", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then((r) => r.data),
+  // Criteria Management
+  listCriteria: (params) =>
+    api.get("/api/admin/criteria/admin/all", { params }).then((r) => r.data),
+  getCriteria: (id, params) =>
+    api.get(`/api/admin/criteria/${id}`, { params }).then((r) => r.data),
+  createCriteria: (payload) =>
+    api.post("/api/admin/criteria/create", payload).then((r) => r.data),
+  updateCriteria: (id, payload) =>
+    api.put(`/api/admin/criteria/${id}`, payload).then((r) => r.data),
+  deleteCriteria: (id) =>
+    api.delete(`/api/admin/criteria/${id}`).then((r) => r.data),
+  toggleCriteriaMultiSelect: (id, payload) =>
+    api.patch(`/api/admin/criteria/${id}/toggle-multi-select`, payload).then((r) => r.data),
+  bulkUpdateCriteriaMultiSelect: (payload) =>
+    api.patch("/api/admin/criteria/bulk-update-multi-select", payload).then((r) => r.data),
   // Subscription Analytics
   getSubscriptionAnalytics: (params) =>
     api

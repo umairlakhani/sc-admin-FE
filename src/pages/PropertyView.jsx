@@ -22,6 +22,10 @@ function PropertyView() {
   const navigate = useNavigate()
   const [property, setProperty] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [criteria, setCriteria] = useState(null)
+  const [showcase, setShowcase] = useState(null)
+  const [demandCriteria, setDemandCriteria] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
   const currency = useMemo(
     () => new Intl.NumberFormat('en-CH', { style: 'currency', currency: property?.currency || 'CHF' }),
     [property?.currency]
@@ -45,9 +49,58 @@ function PropertyView() {
     }
   }
 
+  // Load all property details
+  async function loadPropertyDetails() {
+    if (!id) return
+    setLoadingDetails(true)
+    try {
+      // Load property criteria
+      try {
+        const criteriaRes = await adminService.getProperty(id)
+        if (criteriaRes?.data?.criteria) {
+          setCriteria(criteriaRes.data.criteria)
+        }
+      } catch (err) {
+        console.log('No criteria found for this property')
+      }
+
+      // Load property showcase
+      try {
+        const showcaseRes = await adminService.getProperty(id)
+        if (showcaseRes?.data?.showcase) {
+          setShowcase(showcaseRes.data.showcase)
+        }
+      } catch (err) {
+        console.log('No showcase found for this property')
+      }
+
+      // Load demand criteria if it's a demand property
+      if (property?.listType === 'demand') {
+        try {
+          const demandRes = await adminService.getProperty(id)
+          if (demandRes?.data?.demandCriteria) {
+            setDemandCriteria(demandRes.data.demandCriteria)
+          }
+        } catch (err) {
+          console.log('No demand criteria found for this property')
+        }
+      }
+    } catch (err) {
+      console.error('Error loading property details:', err)
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
+
   useEffect(() => {
     loadProperty()
   }, [id])
+
+  useEffect(() => {
+    if (property) {
+      loadPropertyDetails()
+    }
+  }, [property])
 
   useEffect(() => {
     if (!property) return
@@ -308,6 +361,198 @@ function PropertyView() {
               <div className="text-sm text-gray-500">No images uploaded.</div>
             )}
           </Section>
+
+          {/* Property Criteria Section */}
+          {criteria && (
+            <Section title="Property Criteria">
+              {loadingDetails ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500">Loading criteria...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(criteria).map(([key, value]) => (
+                    <div key={key} className="border rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {Array.isArray(value) ? value.join(', ') : value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* Property Showcase Section */}
+          {showcase && (
+            <Section title="Property Showcase">
+              {loadingDetails ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500">Loading showcase...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {showcase.mainImage && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Main Image</div>
+                      <img 
+                        src={showcase.mainImage} 
+                        alt="Main property image" 
+                        className="w-full max-w-md h-48 object-cover rounded-lg border border-gray-200"
+                      />
+                    </div>
+                  )}
+                  
+                  {showcase.images && showcase.images.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Additional Images</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {showcase.images.map((src, i) => (
+                          <img key={i} src={src} alt={`Property image ${i + 1}`} className="aspect-video w-full rounded-lg object-cover border border-gray-200" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {showcase.vendorName && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Vendor Name</div>
+                        <div className="text-sm text-gray-600">{showcase.vendorName}</div>
+                        {showcase.vendorNameVisible && (
+                          <span className="text-xs text-green-600 ml-2">(Public)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {showcase.email && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Email</div>
+                        <div className="text-sm text-gray-600">{showcase.email}</div>
+                        {showcase.emailVisible && (
+                          <span className="text-xs text-green-600 ml-2">(Public)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {showcase.phone && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Phone</div>
+                        <div className="text-sm text-gray-600">{showcase.phone}</div>
+                        {showcase.phoneVisible && (
+                          <span className="text-xs text-green-600 ml-2">(Public)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {showcase.webUrl && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Website</div>
+                        <a href={showcase.webUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                          {showcase.webUrl}
+                        </a>
+                        {showcase.webUrlVisible && (
+                          <span className="text-xs text-green-600 ml-2">(Public)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {showcase.virtualTour && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Virtual Tour</div>
+                        <a href={showcase.virtualTour} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                          View Virtual Tour
+                        </a>
+                        {showcase.virtualTourVisible && (
+                          <span className="text-xs text-green-600 ml-2">(Public)</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {showcase.contactTime && (
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Contact Time</div>
+                        <div className="text-sm text-gray-600">{showcase.contactTime}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* Demand Criteria Section */}
+          {demandCriteria && property?.listType === 'demand' && (
+            <Section title="Demand Criteria">
+              {loadingDetails ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500">Loading demand criteria...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {demandCriteria.mustCriteria && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Must Have Criteria</div>
+                      <div className="space-y-2">
+                        {Object.entries(demandCriteria.mustCriteria).map(([key, value]) => (
+                          <div key={key} className="border rounded-lg p-3 bg-red-50">
+                            <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
+                              {key.replace(/([A-Z])/g, ' $1').trim()}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {Array.isArray(value) ? value.join(', ') : value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {demandCriteria.shouldCriteria && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Should Have Criteria</div>
+                      <div className="space-y-2">
+                        {Object.entries(demandCriteria.shouldCriteria).map(([key, value]) => (
+                          <div key={key} className="border rounded-lg p-3 bg-yellow-50">
+                            <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
+                              {key.replace(/([A-Z])/g, ' $1').trim()}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {Array.isArray(value) ? value.join(', ') : value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {demandCriteria.matchingLevel && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Matching Level</div>
+                      <div className="space-y-2">
+                        {demandCriteria.matchingLevel.map((level, index) => (
+                          <div key={index} className="border rounded-lg p-3 bg-blue-50">
+                            <div className="text-sm font-medium text-gray-700 mb-1">
+                              {level.name}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Options: {level.options?.join(', ')}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Section>
+          )}
         </div>
 
         <div className="space-y-4">
